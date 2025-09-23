@@ -1,0 +1,33 @@
+# Insurance Service Configuration
+server:
+  port: 8085
+
+spring:
+  application:
+    name: insurance-service
+  datasource:
+    url: jdbc:mysql://localhost:3306/travel_insurance_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+    username: root
+    password: root
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+        format_sql: true
+
+# Feign client configuration
+feign:
+  clients:
+    booking-service:
+      url: http://localhost:8083
+    user-service:
+      url: http://localhost:8081
+
+logging:
+  level:
+    com.tpbs.insuranceservice: DEBUG
+    org.hibernate.SQL: DEBUG 

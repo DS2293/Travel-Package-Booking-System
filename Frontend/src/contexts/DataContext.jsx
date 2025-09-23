@@ -1,0 +1,492 @@
+import { createContext, useContext, useState, useEffect } from 'react';
+import { 
+  services, 
+  userService, 
+  packageService, 
+  bookingService, 
+  paymentService, 
+  reviewService, 
+  insuranceService, 
+  assistanceService,
+  dashboardHelpers 
+} from '../services';
+
+const DataContext = createContext();
+
+export const useData = () => {
+  const context = useContext(DataContext);
+  if (!context) {
+    throw new Error('useData must be used within a DataProvider');
+  }
+  return context;
+};
+
+export const DataProvider = ({ children }) => {
+  // Initialize empty state - will be populated from APIs only
+  const [data, setData] = useState({
+    users: [],
+    travelPackages: [],
+    bookings: [],
+    payments: [],
+    reviews: [],
+    insurance: [],
+    assistanceRequests: []
+  });
+  
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  // Load data from APIs only
+  useEffect(() => {
+    const loadData = async () => {
+      setLoading(true);
+      setError(null);
+      
+      try {
+        const [usersResult, packagesResult, bookingsResult, paymentsResult, reviewsResult, insuranceResult, assistanceResult] = await Promise.all([
+          userService.getAllUsers(),
+          packageService.getAllPackages(),
+          bookingService.getAllBookings(),
+          paymentService.getAllPayments(),
+          reviewService.getAllReviews(),
+          insuranceService.getAllInsurance(),
+          assistanceService.getAllAssistanceRequests()
+        ]);
+
+        setData({
+          users: usersResult.success ? usersResult.data : [],
+          travelPackages: packagesResult.success ? packagesResult.data : [],
+          bookings: bookingsResult.success ? bookingsResult.data : [],
+          payments: paymentsResult.success ? paymentsResult.data : [],
+          reviews: reviewsResult.success ? reviewsResult.data : [],
+          insurance: insuranceResult.success ? insuranceResult.data : [],
+          assistanceRequests: assistanceResult.success ? assistanceResult.data : []
+        });
+      } catch (err) {
+        console.error('Failed to load data from APIs:', err);
+        setError('Failed to connect to backend services');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
+  }, []);
+  // Refresh data function
+  const refreshData = async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const [usersResult, packagesResult, bookingsResult, paymentsResult, reviewsResult, insuranceResult, assistanceResult] = await Promise.all([
+        userService.getAllUsers(),
+        packageService.getAllPackages(),
+        bookingService.getAllBookings(),
+        paymentService.getAllPayments(),
+        reviewService.getAllReviews(),
+        insuranceService.getAllInsurance(),
+        assistanceService.getAllAssistanceRequests()
+      ]);
+
+      setData({
+        users: usersResult.success ? usersResult.data : [],
+        travelPackages: packagesResult.success ? packagesResult.data : [],
+        bookings: bookingsResult.success ? bookingsResult.data : [],
+        payments: paymentsResult.success ? paymentsResult.data : [],
+        reviews: reviewsResult.success ? reviewsResult.data : [],
+        insurance: insuranceResult.success ? insuranceResult.data : [],
+        assistanceRequests: assistanceResult.success ? assistanceResult.data : []
+      });
+    } catch (err) {
+      console.error('Failed to refresh data:', err);
+      setError('Failed to refresh data from backend services');
+    } finally {
+      setLoading(false);
+    }
+  };
+  // CRUD Operations - API only
+  const addUser = async (userData) => {
+    try {
+      const result = await userService.createUser({
+        ...userData,
+        registrationDate: new Date().toISOString(),
+        approval: userData.approval || 'approved'
+      });
+      
+      if (result.success) {
+        setData(prev => ({
+          ...prev,
+          users: [...prev.users, result.data]
+        }));
+        return result.data;
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (error) {
+      console.error('Failed to add user:', error);
+      throw error;
+    }
+  };
+  const updateUser = async (userId, updates) => {
+    try {
+      const result = await userService.updateUser(userId, updates);
+      if (result.success) {
+        setData(prev => ({
+          ...prev,
+          users: prev.users.map(user => 
+            user.UserID === userId ? { ...user, ...updates } : user
+          )
+        }));
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (error) {
+      console.error('Failed to update user:', error);
+      throw error;
+    }
+  };
+  const deleteUser = async (userId) => {
+    try {
+      const result = await userService.deleteUser(userId);
+      if (result.success) {
+        setData(prev => ({
+          ...prev,
+          users: prev.users.filter(user => user.UserID !== userId)
+        }));
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (error) {
+      console.error('Failed to delete user:', error);
+      throw error;
+    }
+  };
+  // Travel Package Operations
+  const addTravelPackage = async (packageData) => {
+    try {
+      const result = await packageService.createPackage(packageData);
+      if (result.success) {
+        setData(prev => ({
+          ...prev,
+          travelPackages: [...prev.travelPackages, result.data]
+        }));
+        return result.data;
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (error) {
+      console.error('Failed to add package:', error);
+      throw error;
+    }
+  };
+  const updateTravelPackage = async (packageId, updates) => {
+    try {
+      const result = await packageService.updatePackage(packageId, updates);
+      if (result.success) {
+        setData(prev => ({
+          ...prev,
+          travelPackages: prev.travelPackages.map(pkg => 
+            pkg.PackageID === packageId ? { ...pkg, ...updates } : pkg
+          )
+        }));
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (error) {
+      console.error('Failed to update package:', error);
+      throw error;
+    }
+  };
+  const deleteTravelPackage = async (packageId) => {
+    try {
+      const result = await packageService.deletePackage(packageId);
+      if (result.success) {
+        setData(prev => ({
+          ...prev,
+          travelPackages: prev.travelPackages.filter(pkg => pkg.PackageID !== packageId)
+        }));
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (error) {
+      console.error('Failed to delete package:', error);
+      throw error;
+    }
+  };
+  // Booking Operations
+  const addBooking = async (bookingData) => {
+    try {
+      const result = await bookingService.createBooking(bookingData);
+      if (result.success) {
+        setData(prev => ({
+          ...prev,
+          bookings: [...prev.bookings, result.data]
+        }));
+        return result.data;
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (error) {
+      console.error('Failed to add booking:', error);
+      throw error;
+    }
+  };
+  const updateBooking = async (bookingId, updates) => {
+    try {
+      const result = await bookingService.updateBooking(bookingId, updates);
+      if (result.success) {
+        setData(prev => ({
+          ...prev,
+          bookings: prev.bookings.map(booking => 
+            booking.BookingID === bookingId ? { ...booking, ...updates } : booking
+          )
+        }));
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (error) {
+      console.error('Failed to update booking:', error);
+      throw error;
+    }
+  };
+  const deleteBooking = async (bookingId) => {
+    try {
+      const result = await bookingService.deleteBooking(bookingId);
+      if (result.success) {
+        setData(prev => ({
+          ...prev,
+          bookings: prev.bookings.filter(booking => booking.BookingID !== bookingId)
+        }));
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (error) {
+      console.error('Failed to delete booking:', error);
+      throw error;
+    }
+  };
+  // Payment Operations
+  const addPayment = async (paymentData) => {
+    try {
+      const result = await paymentService.createPayment(paymentData);
+      if (result.success) {
+        setData(prev => ({
+          ...prev,
+          payments: [...prev.payments, result.data]
+        }));
+        return result.data;
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (error) {
+      console.error('Failed to add payment:', error);
+      throw error;
+    }
+  };
+  const updatePayment = async (paymentId, updates) => {
+    try {
+      const result = await paymentService.updatePayment(paymentId, updates);
+      if (result.success) {
+        setData(prev => ({
+          ...prev,
+          payments: prev.payments.map(payment => 
+            payment.PaymentID === paymentId ? { ...payment, ...updates } : payment
+          )
+        }));
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (error) {
+      console.error('Failed to update payment:', error);
+      throw error;
+    }
+  };
+  // Review Operations
+  const addReview = async (reviewData) => {
+    try {
+      const result = await reviewService.createReview({
+        ...reviewData,
+        timestamp: new Date().toISOString()
+      });
+      if (result.success) {
+        setData(prev => ({
+          ...prev,
+          reviews: [...prev.reviews, result.data]
+        }));
+        return result.data;
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (error) {
+      console.error('Failed to add review:', error);
+      throw error;
+    }
+  };
+  const updateReview = async (reviewId, updates) => {
+    try {
+      const result = await reviewService.updateReview(reviewId, updates);
+      if (result.success) {
+        setData(prev => ({
+          ...prev,
+          reviews: prev.reviews.map(review => 
+            review.ReviewID === reviewId ? { ...review, ...updates } : review
+          )
+        }));
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (error) {
+      console.error('Failed to update review:', error);
+      throw error;
+    }
+  };
+  const deleteReview = async (reviewId) => {
+    try {
+      const result = await reviewService.deleteReview(reviewId);
+      if (result.success) {
+        setData(prev => ({
+          ...prev,
+          reviews: prev.reviews.filter(review => review.ReviewID !== reviewId)
+        }));
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (error) {
+      console.error('Failed to delete review:', error);
+      throw error;
+    }
+  };
+  // Assistance Request Operations
+  const addAssistanceRequest = async (requestData) => {
+    try {
+      const result = await assistanceService.createAssistanceRequest({
+        ...requestData,
+        status: 'pending',
+        resolutionTime: null,
+        timestamp: new Date().toISOString()
+      });
+      if (result.success) {
+        setData(prev => ({
+          ...prev,
+          assistanceRequests: [...prev.assistanceRequests, result.data]
+        }));
+        return result.data;
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (error) {
+      console.error('Failed to add assistance request:', error);
+      throw error;
+    }
+  };
+  const updateAssistanceRequest = async (requestId, updates) => {
+    try {
+      const result = await assistanceService.updateAssistanceRequest(requestId, updates);
+      if (result.success) {
+        setData(prev => ({
+          ...prev,
+          assistanceRequests: prev.assistanceRequests.map(request => 
+            request.RequestID === requestId ? { ...request, ...updates } : request
+          )
+        }));
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (error) {
+      console.error('Failed to update assistance request:', error);
+      throw error;
+    }
+  };
+  const deleteAssistanceRequest = async (requestId) => {
+    try {
+      const result = await assistanceService.deleteAssistanceRequest(requestId);
+      if (result.success) {
+        setData(prev => ({
+          ...prev,
+          assistanceRequests: prev.assistanceRequests.filter(request => request.RequestID !== requestId)
+        }));
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (error) {
+      console.error('Failed to delete assistance request:', error);
+      throw error;
+    }
+  };
+
+  // Helper functions
+  const getUserById = (userId) => data.users.find(user => user.UserID === userId);
+  const getPackageById = (packageId) => data.travelPackages.find(pkg => pkg.PackageID === packageId);
+  const getBookingsByUserId = (userId) => data.bookings.filter(booking => booking.UserID === userId);
+  const getPackagesByAgentId = (agentId) => data.travelPackages.filter(pkg => pkg.AgentID === agentId);
+  // Dashboard data helper
+  const getDashboardData = async (userRole, userId) => {
+    try {
+      switch (userRole) {
+        case 'customer':
+          return await dashboardHelpers.getUserDashboardData(userId);
+        case 'agent':
+          return await dashboardHelpers.getAgentDashboardData(userId);
+        case 'admin':
+          return await dashboardHelpers.getAdminDashboardData();
+        default:
+          return null;
+      }
+    } catch (error) {
+      console.error('Failed to fetch dashboard data:', error);
+      throw error;
+    }
+  };
+
+  const value = {
+    // Data
+    users: data.users,
+    travelPackages: data.travelPackages,
+    bookings: data.bookings,
+    payments: data.payments,
+    reviews: data.reviews,
+    insurance: data.insurance,
+    assistanceRequests: data.assistanceRequests,
+    
+    // State
+    loading,
+    error,
+    
+    // Functions
+    refreshData,
+    
+    // CRUD Operations
+    addUser,
+    updateUser,
+    deleteUser,
+    addTravelPackage,
+    updateTravelPackage,
+    deleteTravelPackage,
+    addBooking,
+    updateBooking,
+    deleteBooking,
+    addPayment,
+    updatePayment,
+    addReview,
+    updateReview,    deleteReview,
+    addAssistanceRequest,
+    updateAssistanceRequest,
+    deleteAssistanceRequest,
+    
+    // Helper functions
+    getUserById,
+    getPackageById,
+    getBookingsByUserId,
+    getPackagesByAgentId,
+    getDashboardData,
+    
+    // Services access
+    services,
+    dashboardHelpers
+  };
+
+  return (
+    <DataContext.Provider value={value}>
+      {children}
+    </DataContext.Provider>
+  );
+}; 

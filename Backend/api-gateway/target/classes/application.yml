@@ -1,0 +1,38 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      # Enable service discovery
+      discovery:
+        locator:
+          enabled: true
+          lower-case-service-id: true
+
+# Eureka Client Configuration
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+    fetch-registry: true
+    register-with-eureka: true
+  instance:
+    prefer-ip-address: true
+    lease-renewal-interval-in-seconds: 10
+    lease-expiration-duration-in-seconds: 30
+
+# JWT Configuration
+jwt:
+  secret: myVerySecretKeyForTravelPackageBookingSystemThatIsLongEnough
+  expiration: 86400
+
+# Logging Configuration
+logging:
+  level:
+    com.tpbs.apigateway: INFO
+    org.springframework.cloud.gateway: INFO
+    com.netflix.eureka: INFO
+    com.netflix.discovery: INFO 
