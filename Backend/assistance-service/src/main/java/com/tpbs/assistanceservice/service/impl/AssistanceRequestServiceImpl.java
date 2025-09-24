@@ -34,22 +34,31 @@ public class AssistanceRequestServiceImpl implements AssistanceRequestService {
             }
         } catch (Exception e) {
             log.warn("Failed to fetch user details for userId: {}, error: {}", userId, e.getMessage());
+            // Return fallback user info to prevent NPEs
+            return java.util.Map.of(
+                "name", "Unknown User",
+                "email", "unknown@example.com",
+                "contactNumber", "N/A"
+            );
         }
         return null;
-    }
-
-    // Enhanced method to get booking details via Feign client
+    }    // Enhanced method to get booking details via Feign client
     @SuppressWarnings("unchecked")
     private Map<String, Object> getBookingDetails(Long userId) {
         try {
             ResponseEntity<Map<String, Object>> response = bookingServiceClient.getBookingsByUser(userId);
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
                 List<Map<String, Object>> bookings = (List<Map<String, Object>>) response.getBody().get("data");
-                // Return the most recent active booking
-                return bookings.stream()
-                    .filter(booking -> "CONFIRMED".equals(booking.get("bookingStatus")) || "ACTIVE".equals(booking.get("bookingStatus")))
-                    .findFirst()
-                    .orElse(bookings.isEmpty() ? null : bookings.get(0));
+                if (bookings != null && !bookings.isEmpty()) {
+                    // Return the most recent active booking
+                    return bookings.stream()
+                        .filter(booking -> {
+                            String status = (String) booking.get("status");
+                            return "CONFIRMED".equals(status) || "ACTIVE".equals(status) || "PENDING".equals(status);
+                        })
+                        .findFirst()
+                        .orElse(bookings.get(0)); // Return first booking if no active ones found
+                }
             }
         } catch (Exception e) {
             log.warn("Failed to fetch booking details for userId: {}, error: {}", userId, e.getMessage());
@@ -71,9 +80,7 @@ public class AssistanceRequestServiceImpl implements AssistanceRequestService {
                 .resolutionTime(ar.getResolutionTime() == null ? null : ar.getResolutionTime().toInstant(ZoneOffset.UTC))
                 .resolutionNote(ar.getResolutionNote())
                 .build();
-    }
-
-    // Enhanced toDto method with cross-service data
+    }    // Enhanced toDto method with cross-service data
     private AssistanceRequestDto toDtoEnhanced(AssistanceRequest ar) {
         AssistanceRequestDto dto = toDto(ar);
         
@@ -85,15 +92,23 @@ public class AssistanceRequestServiceImpl implements AssistanceRequestService {
             dto.setUserContactNumber((String) userDetails.get("contactNumber"));
         }
         
-        // Add booking details
+        // Add booking details with null-safe handling
         Map<String, Object> bookingDetails = getBookingDetails(ar.getUserID());
         if (bookingDetails != null) {
-            dto.setBookingId(((Number) bookingDetails.get("id")).longValue());
+            // Safe handling of booking ID
+            Object bookingIdObj = bookingDetails.get("bookingId");
+            if (bookingIdObj == null) {
+                bookingIdObj = bookingDetails.get("id");  // Try alternative field name
+            }
+            if (bookingIdObj instanceof Number) {
+                dto.setBookingId(((Number) bookingIdObj).longValue());
+            }
+            
             dto.setPackageName((String) bookingDetails.get("packageName"));
             dto.setPackageDestination((String) bookingDetails.get("destination"));
             dto.setTravelStartDate((String) bookingDetails.get("startDate"));
             dto.setTravelEndDate((String) bookingDetails.get("endDate"));
-            dto.setBookingStatus((String) bookingDetails.get("bookingStatus"));
+            dto.setBookingStatus((String) bookingDetails.get("status")); // Changed from bookingStatus to status
         }
         
         return dto;
@@ -115,18 +130,33 @@ public class AssistanceRequestServiceImpl implements AssistanceRequestService {
                 .build();
     }    @Override
     public List<AssistanceRequestDto> getAll() {
-        return repository.findAll().stream().map(this::toDtoEnhanced).collect(Collectors.toList());
+        try {
+            return repository.findAll().stream().map(this::toDtoEnhanced).collect(Collectors.toList());
+        } catch (Exception e) {
+            log.error("Failed to load enhanced assistance requests, falling back to basic data", e);
+            return repository.findAll().stream().map(this::toDto).collect(Collectors.toList());
+        }
     }
 
     @Override
     public AssistanceRequestDto getById(Long id) {
-        return repository.findById(id).map(this::toDtoEnhanced).orElse(null);
+        try {
+            return repository.findById(id).map(this::toDtoEnhanced).orElse(null);
+        } catch (Exception e) {
+            log.error("Failed to load enhanced assistance request {}, falling back to basic data", id, e);
+            return repository.findById(id).map(this::toDto).orElse(null);
+        }
     }
 
     @Override
     public List<AssistanceRequestDto> getByUserId(Long userId) {
-        return repository.findAllByUserId(userId).stream().map(this::toDtoEnhanced).collect(Collectors.toList());
-    }    @Override
+        try {
+            return repository.findAllByUserId(userId).stream().map(this::toDtoEnhanced).collect(Collectors.toList());
+        } catch (Exception e) {
+            log.error("Failed to load enhanced assistance requests for user {}, falling back to basic data", userId, e);
+            return repository.findAllByUserId(userId).stream().map(this::toDto).collect(Collectors.toList());
+        }
+    }@Override
     public AssistanceRequestDto create(AssistanceRequestDto dto) {
         AssistanceRequest entity = toEntity(dto);
         // Defaults

@@ -81,7 +81,7 @@ public class PaymentController {
         response.put("success", true);
         return ResponseEntity.ok(response);
     }
-      @PutMapping("/{id}")
+    @PutMapping("/{id}")
     public ResponseEntity<Map<String, Object>> updatePayment(@PathVariable("id") Long id, @Valid @RequestBody PaymentDto paymentDto) {
         log.debug("Updating payment with id: {}", id);
         PaymentDto updatedPayment = paymentService.updatePayment(id, paymentDto);

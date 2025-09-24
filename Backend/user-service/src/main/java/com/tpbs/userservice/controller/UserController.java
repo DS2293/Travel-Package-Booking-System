@@ -291,9 +291,7 @@ public class UserController {
         long count = userService.countPendingApprovals();
         log.info("Admin {} retrieved pending approvals count", request.getHeader("X-User-Email"));
         return ResponseEntity.ok(count);
-    }
-
-    // Debug endpoint to test header access
+    }    // Debug endpoint to test header access
     @GetMapping("/debug/headers")
     public ResponseEntity<Map<String, Object>> debugHeaders(HttpServletRequest request) {
         Map<String, Object> debug = new HashMap<>();
@@ -305,5 +303,34 @@ public class UserController {
         debug.put("method", request.getMethod());
         
         return ResponseEntity.ok(debug);
+    }
+
+    // Internal service-to-service endpoint for getting basic user info
+    @GetMapping("/internal/{id}")
+    public ResponseEntity<Map<String, Object>> getUserForService(@PathVariable Long id) {
+        log.debug("Internal service request for user ID: {}", id);
+        Optional<UserDto> userOpt = userService.getUserById(id);
+        
+        if (userOpt.isPresent()) {
+            UserDto user = userOpt.get();
+            Map<String, Object> response = new HashMap<>();
+            Map<String, Object> userData = new HashMap<>();
+            userData.put("userId", user.getUserId());
+            userData.put("name", user.getName());
+            userData.put("email", user.getEmail());
+            userData.put("contactNumber", user.getContactNumber());
+            userData.put("role", user.getRole());
+            
+            response.put("success", true);
+            response.put("data", userData);
+            
+            log.debug("Internal service retrieved user data for ID: {}", id);
+            return ResponseEntity.ok(response);
+        } else {
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", "User not found");
+            return ResponseEntity.notFound().build();
+        }
     }
 } 
