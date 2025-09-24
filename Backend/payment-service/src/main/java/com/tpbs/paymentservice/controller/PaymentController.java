@@ -1,6 +1,7 @@
 package com.tpbs.paymentservice.controller;
 
 import com.tpbs.paymentservice.dto.PaymentDto;
+import com.tpbs.paymentservice.dto.PaymentStatusDto;
 import com.tpbs.paymentservice.service.PaymentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -15,7 +16,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/payments")
-@CrossOrigin(origins = "*")
 @RequiredArgsConstructor
 @Slf4j
 public class PaymentController {
@@ -81,14 +81,24 @@ public class PaymentController {
         response.put("success", true);
         return ResponseEntity.ok(response);
     }
-    
-    @PutMapping("/{id}")
+      @PutMapping("/{id}")
     public ResponseEntity<Map<String, Object>> updatePayment(@PathVariable("id") Long id, @Valid @RequestBody PaymentDto paymentDto) {
         log.debug("Updating payment with id: {}", id);
         PaymentDto updatedPayment = paymentService.updatePayment(id, paymentDto);
         Map<String, Object> response = new HashMap<>();
         response.put("data", updatedPayment);
         response.put("success", true);
+        return ResponseEntity.ok(response);
+    }
+    
+    @PutMapping("/{id}/status")
+    public ResponseEntity<Map<String, Object>> updatePaymentStatus(@PathVariable("id") Long id, @Valid @RequestBody PaymentStatusDto statusDto) {
+        log.debug("Updating payment status for payment id: {} to status: {}", id, statusDto.getStatus());
+        PaymentDto updatedPayment = paymentService.updatePaymentStatus(id, statusDto);
+        Map<String, Object> response = new HashMap<>();
+        response.put("data", updatedPayment);
+        response.put("success", true);
+        response.put("message", "Payment status updated successfully");
         return ResponseEntity.ok(response);
     }
     

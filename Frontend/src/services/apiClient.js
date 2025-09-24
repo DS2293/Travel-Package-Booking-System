@@ -1,14 +1,14 @@
 import axios from 'axios';
 
-// Base URLs - Now using API Gateway for user service
+// Base URLs - Using API Gateway for centralized routing and direct services for microservice-specific operations
 const API_BASE_URL = 'http://localhost:8080'; // API Gateway
 const DIRECT_SERVICE_URLS = {
   PACKAGE_SERVICE: 'http://localhost:8082/api/packages',
   BOOKING_SERVICE: 'http://localhost:8083/api/bookings', 
   PAYMENT_SERVICE: 'http://localhost:8084/api/payments',
-  REVIEW_SERVICE: 'http://localhost:8085/api/reviews',
-  INSURANCE_SERVICE: 'http://localhost:8086/api/insurance',
-  ASSISTANCE_SERVICE: 'http://localhost:8087/api/assistance'
+  INSURANCE_SERVICE: 'http://localhost:8085/api/insurance',
+  ASSISTANCE_SERVICE: 'http://localhost:8086/api/assistance',
+  REVIEW_SERVICE: 'http://localhost:8087/api/reviews'
 };
 
 // Create axios instance with default configuration

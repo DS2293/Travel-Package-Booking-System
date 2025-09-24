@@ -41,13 +41,42 @@ public class ApiGatewayApplication {
                 .filters(f -> f.filter(jwtFilter.apply(new JwtAuthenticationGatewayFilterFactory.Config())))
                 .uri("lb://user-service")
             )
-            
-            // Health check route
-            .route("health-route", r -> r
-                .path("/health")
-                .uri("lb://user-service")
+
+            .route("booking-routes", r -> r
+                .path("/api/bookings/**")
+                .filters(f -> f.filter(jwtFilter.apply(new JwtAuthenticationGatewayFilterFactory.Config())))
+                .uri("lb://booking-service")
             )
-            
+
+            .route("package-routes", r -> r
+                .path("/api/packages/**")
+                .filters(f -> f.filter(jwtFilter.apply(new JwtAuthenticationGatewayFilterFactory.Config())))
+                .uri("lb://package-service")
+            )
+
+            .route("insurance-routes", r -> r
+                .path("/api/insurance/**")
+                .filters(f -> f.filter(jwtFilter.apply(new JwtAuthenticationGatewayFilterFactory.Config())))
+                .uri("lb://insurance-service")
+            )
+
+            .route("payment-routes", r -> r
+                .path("/api/payments/**")
+                .filters(f -> f.filter(jwtFilter.apply(new JwtAuthenticationGatewayFilterFactory.Config())))
+                .uri("lb://payment-service")
+            )
+                .route("review-routes", r -> r
+                        .path("/api/reviews/**")
+                        .filters(f -> f.filter(jwtFilter.apply(new JwtAuthenticationGatewayFilterFactory.Config())))
+                        .uri("lb://review-service")
+                )
+
+                .route("assistance-routes", r -> r
+                        .path("/api/assistance/**")
+                        .filters(f -> f.filter(jwtFilter.apply(new JwtAuthenticationGatewayFilterFactory.Config())))
+                        .uri("lb://assistance-service")
+                )
+
             .build();
     }    @Bean
     public CorsWebFilter corsWebFilter() {

@@ -3,6 +3,7 @@ package com.tpbs.paymentservice.service.impl;
 import com.tpbs.paymentservice.client.BookingServiceClient;
 import com.tpbs.paymentservice.client.UserServiceClient;
 import com.tpbs.paymentservice.dto.PaymentDto;
+import com.tpbs.paymentservice.dto.PaymentStatusDto;
 import com.tpbs.paymentservice.model.Payment;
 import com.tpbs.paymentservice.repository.PaymentRepository;
 import com.tpbs.paymentservice.service.PaymentService;
@@ -67,8 +68,7 @@ public class PaymentServiceImpl implements PaymentService {
         Payment savedPayment = paymentRepository.save(payment);
         return toDto(savedPayment);
     }
-    
-    @Override
+      @Override
     public PaymentDto updatePayment(Long id, PaymentDto paymentDto) {
         Payment payment = paymentRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Payment not found with id: " + id));
@@ -81,6 +81,26 @@ public class PaymentServiceImpl implements PaymentService {
         payment.setDescription(paymentDto.getDescription());
         
         Payment updatedPayment = paymentRepository.save(payment);
+        return toDto(updatedPayment);
+    }
+    
+    @Override
+    public PaymentDto updatePaymentStatus(Long id, PaymentStatusDto statusDto) {
+        Payment payment = paymentRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Payment not found with id: " + id));
+        
+        payment.setStatus(statusDto.getStatus());
+        
+        if (statusDto.getTransactionId() != null && !statusDto.getTransactionId().trim().isEmpty()) {
+            payment.setTransactionId(statusDto.getTransactionId());
+        }
+        
+        if (statusDto.getDescription() != null && !statusDto.getDescription().trim().isEmpty()) {
+            payment.setDescription(statusDto.getDescription());
+        }
+        
+        Payment updatedPayment = paymentRepository.save(payment);
+        log.info("Payment status updated to {} for payment ID: {}", statusDto.getStatus(), id);
         return toDto(updatedPayment);
     }
     

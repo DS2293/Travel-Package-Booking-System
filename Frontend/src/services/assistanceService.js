@@ -50,6 +50,25 @@ class AssistanceService {
       data: resolutionData
     });
   }
+  
+  // Enhanced methods utilizing cross-service integration  
+  async getAssistanceRequestsWithDetails() {
+    return await apiRequest(`${this.baseURL}`, {
+      params: { enhanced: true }
+    });
+  }
+
+  async getAssistanceRequestsByUserIdWithDetails(userId) {
+    return await apiRequest(`${this.baseURL}/user/${userId}`, {
+      params: { enhanced: true }
+    });
+  }
+
+  async getAssistanceRequestByIdWithDetails(requestId) {
+    return await apiRequest(`${this.baseURL}/${requestId}`, {
+      params: { enhanced: true }
+    });
+  }
 }
 
 export default new AssistanceService();

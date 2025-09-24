@@ -47,6 +47,25 @@ class ReviewService {
       data: replyData
     });
   }
+
+  // Enhanced methods utilizing cross-service integration
+  async getReviewsWithDetails() {
+    return await apiRequest(`${this.baseURL}`, {
+      params: { enhanced: true }
+    });
+  }
+
+  async getReviewsByPackageIdWithDetails(packageId) {
+    return await apiRequest(`${this.baseURL}/package/${packageId}`, {
+      params: { enhanced: true }
+    });
+  }
+
+  async getReviewsByUserIdWithDetails(userId) {
+    return await apiRequest(`${this.baseURL}/user/${userId}`, {
+      params: { enhanced: true }
+    });
+  }
 }
 
-export default new ReviewService(); 
+export default new ReviewService();

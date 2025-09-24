@@ -15,7 +15,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/insurance")
-@CrossOrigin(origins = "*")
 @RequiredArgsConstructor
 @Slf4j
 public class InsuranceController {

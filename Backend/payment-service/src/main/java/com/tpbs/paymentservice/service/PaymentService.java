@@ -1,6 +1,7 @@
 package com.tpbs.paymentservice.service;
 
 import com.tpbs.paymentservice.dto.PaymentDto;
+import com.tpbs.paymentservice.dto.PaymentStatusDto;
 
 import java.util.List;
 import java.util.Map;
@@ -13,6 +14,7 @@ public interface PaymentService {
     List<PaymentDto> getPaymentsByBookingId(Long bookingId);
     PaymentDto createPayment(PaymentDto paymentDto);
     PaymentDto updatePayment(Long id, PaymentDto paymentDto);
+    PaymentDto updatePaymentStatus(Long id, PaymentStatusDto statusDto);
     void deletePayment(Long id);
     PaymentDto processPayment(PaymentDto paymentDto);
     PaymentDto refundPayment(Long id);
