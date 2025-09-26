@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { useData } from '../contexts/DataContext';
+import { assistanceService } from '../services';
 import { toast } from 'react-hot-toast';
 import '../styles/Assistance.css';
 
 const Assistance = () => {
   const { currentUser, isAuthenticated } = useAuth();
-  const { assistanceRequests, addAssistanceRequest } = useData();
   const [showForm, setShowForm] = useState(false);
   const [userRequests, setUserRequests] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [formData, setFormData] = useState({
     subject: '',
     message: '',
@@ -16,16 +16,27 @@ const Assistance = () => {
   });
 
   useEffect(() => {
-    if (isAuthenticated) {
-      // Get user's assistance requests
-      const userRequestsData = assistanceRequests.filter(
-        request => request.UserID === currentUser.UserID
-      );
-      setUserRequests(userRequestsData);
+    if (isAuthenticated && currentUser) {
+      loadUserRequests();
     }
-  }, [isAuthenticated, currentUser.UserID, assistanceRequests]);
+  }, [isAuthenticated, currentUser]);
 
-  const handleSubmit = (e) => {
+  const loadUserRequests = async () => {
+    setLoading(true);
+    try {
+      const result = await assistanceService.getAssistanceRequestsByUserId(currentUser.UserID);
+      if (result.success) {
+        setUserRequests(result.data);
+      }
+    } catch (error) {
+      console.error('Failed to load assistance requests:', error);
+      toast.error('Failed to load your requests');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     
     if (!formData.subject || !formData.message) {
@@ -33,30 +44,35 @@ const Assistance = () => {
       return;
     }
 
-    const newRequest = {
-      RequestID: Math.max(...assistanceRequests.map(r => r.RequestID)) + 1,
-      UserID: currentUser.UserID,
-      IssueDescription: `${formData.subject}: ${formData.message}`, // Combined for AdminDashboard
-      Subject: formData.subject,
-      Message: formData.message,
-      Priority: formData.priority,
-      Status: 'pending',
-      RequestDate: new Date().toISOString(),
-      Timestamp: new Date().toISOString() // For AdminDashboard compatibility
-    };
+    try {
+      const requestData = {
+        userID: currentUser.UserID,
+        issueDescription: `${formData.subject}: ${formData.message}`,
+        subject: formData.subject,
+        message: formData.message,
+        priority: formData.priority
+      };
 
-    addAssistanceRequest(newRequest);
-    setUserRequests([...userRequests, newRequest]);
-    
-    // Reset form and close modal
-    setFormData({
-      subject: '',
-      message: '',
-      priority: 'medium'
-    });
-    setShowForm(false);
-    
-    toast.success('Assistance request submitted successfully');
+      const result = await assistanceService.createAssistanceRequest(requestData);
+      if (result.success) {
+        setUserRequests([...userRequests, result.data]);
+        
+        // Reset form and close modal
+        setFormData({
+          subject: '',
+          message: '',
+          priority: 'medium'
+        });
+        setShowForm(false);
+        
+        toast.success('Assistance request submitted successfully');
+      } else {
+        toast.error('Failed to submit request');
+      }
+    } catch (error) {
+      console.error('Failed to submit assistance request:', error);
+      toast.error('Failed to submit request');
+    }
   };
 
   const getStatusBadge = (status) => {

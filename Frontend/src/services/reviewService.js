@@ -1,8 +1,8 @@
-import { apiRequest, DIRECT_SERVICE_URLS } from './apiClient';
+import { apiRequest } from './apiClient';
 
 class ReviewService {
   constructor() {
-    this.baseURL = DIRECT_SERVICE_URLS.REVIEW_SERVICE;
+    this.baseURL = '/api/reviews'; // API Gateway route
   }
 
   async getAllReviews() {

@@ -1,14 +1,15 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { useData } from '../contexts/DataContext';
+import { reviewService, packageService, userService } from '../services';
 import { toast } from 'react-hot-toast';
 import '../styles/Reviews.css';
 
 const Reviews = () => {
   const { currentUser, isAuthenticated } = useAuth();
-  const { reviews, travelPackages, users, addReview, updateReview } = useData();
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [allReviews, setAllReviews] = useState([]);
+  const [packages, setPackages] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [newReview, setNewReview] = useState({
     rating: 5,
     comment: '',
@@ -16,10 +17,32 @@ const Reviews = () => {
   });
 
   useEffect(() => {
-    setAllReviews(reviews);
-  }, [reviews]);
+    loadData();
+  }, []);
 
-  const handleReviewSubmit = (e) => {
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      const [reviewsResult, packagesResult] = await Promise.all([
+        reviewService.getAllReviews(),
+        packageService.getAllPackages()
+      ]);
+      
+      if (reviewsResult.success) {
+        setAllReviews(reviewsResult.data);
+      }
+      if (packagesResult.success) {
+        setPackages(packagesResult.data);
+      }
+    } catch (error) {
+      console.error('Failed to load data:', error);
+      toast.error('Failed to load reviews');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleReviewSubmit = async (e) => {
     e.preventDefault();
     
     if (!newReview.comment.trim() || !newReview.packageId) {
@@ -27,38 +50,58 @@ const Reviews = () => {
       return;
     }
 
-    // Create new review using DataContext
-    const review = addReview({
-      UserID: currentUser.UserID,
-      PackageID: parseInt(newReview.packageId),
-      Rating: newReview.rating,
-      Comment: newReview.comment
-    });
+    try {
+      // Create new review using direct API call
+      const reviewData = {
+        userID: currentUser.UserID,
+        packageID: parseInt(newReview.packageId),
+        rating: newReview.rating,
+        comment: newReview.comment
+      };
 
-    setAllReviews([...allReviews, review]);
-    setNewReview({ rating: 5, comment: '', packageId: '' });
-    setShowReviewForm(false);
-    toast.success('Review submitted successfully');
+      const result = await reviewService.createReview(reviewData);
+      if (result.success) {
+        setAllReviews([...allReviews, result.data]);
+        setNewReview({ rating: 5, comment: '', packageId: '' });
+        setShowReviewForm(false);
+        toast.success('Review submitted successfully');
+      } else {
+        toast.error('Failed to submit review');
+      }
+    } catch (error) {
+      console.error('Failed to submit review:', error);
+      toast.error('Failed to submit review');
+    }
   };
 
-  const handleReplySubmit = (reviewId, reply) => {
-    // Update review with agent reply using DataContext
-    updateReview(reviewId, { agentReply: reply });
-    
-    // Update local state
-    setAllReviews(allReviews.map(review => 
-      review.ReviewID === reviewId 
-        ? { ...review, agentReply: reply }
-        : review
-    ));
+  const handleReplySubmit = async (reviewId, reply) => {
+    try {
+      // Update review with agent reply using direct API call
+      const result = await reviewService.addAgentReply(reviewId, { agentReply: reply });
+      if (result.success) {
+        // Update local state
+        setAllReviews(allReviews.map(review => 
+          (review.reviewID || review.ReviewID) === reviewId 
+            ? { ...review, agentReply: reply }
+            : review
+        ));
+        toast.success('Reply added successfully');
+      } else {
+        toast.error('Failed to add reply');
+      }
+    } catch (error) {
+      console.error('Failed to add reply:', error);
+      toast.error('Failed to add reply');
+    }
   };
 
   const getUserById = (userId) => {
-    return users.find(user => user.UserID === userId);
+    // Since we're not loading all users, return placeholder
+    return { Name: `User ${userId}`, UserID: userId };
   };
 
   const getPackageById = (packageId) => {
-    return travelPackages.find(pkg => pkg.PackageID === packageId);
+    return packages.find(pkg => (pkg.packageId || pkg.PackageID) === packageId);
   };
 
   const renderStars = (rating) => {

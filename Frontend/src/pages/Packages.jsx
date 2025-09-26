@@ -1,14 +1,13 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { useData } from '../contexts/DataContext';
-import { insuranceTypes } from '../data';
+import { packageService, bookingService, paymentService } from '../services';
+import { insuranceTypes } from '../constants/insuranceTypes';
 import { toast } from 'react-hot-toast';
 import '../styles/Packages.css';
 
 const Packages = () => {
   const { currentUser, isAuthenticated } = useAuth();
-  const { travelPackages, users, addBooking, addPayment, updateBooking } = useData();
   const navigate = useNavigate();
   const [selectedPackage, setSelectedPackage] = useState(null);
   const [showBookingModal, setShowBookingModal] = useState(false);
@@ -16,13 +15,38 @@ const Packages = () => {
   const [selectedInsurance, setSelectedInsurance] = useState(null);
   const [filterDuration, setFilterDuration] = useState('all');
   const [sortBy, setSortBy] = useState('name');
+  const [packages, setPackages] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // Load packages from API
+  useEffect(() => {
+    loadPackages();
+  }, []);
+
+  const loadPackages = async () => {
+    setLoading(true);
+    try {
+      const result = await packageService.getAllPackages();
+      if (result.success) {
+        setPackages(result.data);
+      } else {
+        toast.error('Failed to load packages');
+      }
+    } catch (error) {
+      console.error('Failed to load packages:', error);
+      toast.error('Failed to load packages');
+    } finally {
+      setLoading(false);
+    }
+  };
 
 
   // Filter and sort packages
-  const filteredAndSortedPackages = travelPackages
+  const filteredAndSortedPackages = packages
     .filter(pkg => {
       if (filterDuration === 'all') return true;
-      const days = parseInt(pkg.Duration.split(' ')[0]);
+      const duration = pkg.duration || pkg.Duration || '';
+      const days = parseInt(duration.split(' ')[0]);
       switch (filterDuration) {
         case 'short': return days <= 3;
         case 'medium': return days > 3 && days <= 7;
@@ -33,13 +57,15 @@ const Packages = () => {
     .sort((a, b) => {
       switch (sortBy) {
         case 'name':
-          return a.Title.localeCompare(b.Title);
+          return (a.title || a.Title || '').localeCompare(b.title || b.Title || '');
         case 'price-low':
-          return a.Price - b.Price;
+          return (a.price || a.Price || 0) - (b.price || b.Price || 0);
         case 'price-high':
-          return b.Price - a.Price;
+          return (b.price || b.Price || 0) - (a.price || a.Price || 0);
         case 'duration':
-          return parseInt(a.Duration.split(' ')[0]) - parseInt(b.Duration.split(' ')[0]);
+          const aDays = parseInt((a.duration || a.Duration || '').split(' ')[0]);
+          const bDays = parseInt((b.duration || b.Duration || '').split(' ')[0]);
+          return aDays - bDays;
         default:
           return 0;
       }
@@ -54,7 +80,7 @@ const Packages = () => {
     setShowBookingModal(true);
   };
 
-  const handleBookingSubmit = (bookingData) => {
+  const handleBookingSubmit = async (bookingData) => {
     // Validate dates
     if (!bookingData.startDate || !bookingData.endDate) {
       toast.error('Please select both start and end dates');
@@ -77,14 +103,37 @@ const Packages = () => {
       return;
     }
 
-    // Close booking modal and show payment modal
-    setShowBookingModal(false);
-    setShowPaymentModal(true);
+    try {
+      // Create booking using direct API call
+      const newBookingData = {
+        userId: currentUser.UserID,
+        packageId: selectedPackage.packageId || selectedPackage.PackageID,
+        startDate: bookingData.startDate,
+        endDate: bookingData.endDate,
+        status: 'pending',
+        paymentId: null
+      };
+
+      const result = await bookingService.createBooking(newBookingData);
+      if (result.success) {
+        // Store booking data for payment
+        setSelectedPackage(prev => ({ ...prev, bookingId: result.data.bookingId }));
+        setShowBookingModal(false);
+        setShowPaymentModal(true);
+        toast.success('Booking created successfully!');
+      } else {
+        toast.error('Failed to create booking');
+      }
+    } catch (error) {
+      console.error('Failed to create booking:', error);
+      toast.error('Failed to create booking');
+    }
   };
 
   const getAgentName = (agentId) => {
-    const agent = users.find(user => user.UserID === agentId);
-    return agent ? agent.Name : 'Unknown Agent';
+    // Return placeholder for agent name
+    // In a real app, you might want to fetch agent details separately
+    return `Agent ${agentId}`;
   };
 
   const getDurationDays = (duration) => {
@@ -122,7 +171,7 @@ const Packages = () => {
     input.value = input.value.replace(/\D/g, '').substring(0, 4);
   };
 
-  const handlePaymentSubmit = (paymentData) => {
+  const handlePaymentSubmit = async (paymentData) => {
     // Get form values
     const cardNumber = document.getElementById('cardNumber').value;
     const expiryDate = document.getElementById('expiryDate').value;
@@ -175,47 +224,54 @@ const Packages = () => {
     }
 
     try {
-      // Create new booking and payment records using DataContext
-      const startDate = document.getElementById('startDate').value;
-      const endDate = document.getElementById('endDate').value;
+      // Create payment using direct API call
+      const totalAmount = (selectedPackage.price || selectedPackage.Price) + (selectedInsurance ? selectedInsurance.price : 0);
       
-      // Create new booking
-      const newBooking = addBooking({
-        UserID: currentUser.UserID,
-        PackageID: selectedPackage.PackageID,
-        StartDate: startDate,
-        EndDate: endDate,
-        Status: 'confirmed',
-        PaymentID: null
-      });
+      const paymentData = {
+        userId: currentUser.UserID,
+        bookingId: selectedPackage.bookingId, // Set during booking creation
+        amount: totalAmount,
+        paymentMethod: 'CREDIT_CARD',
+        cardLastFour: cardNumber.slice(-4).replace(/\s/g, ''),
+        description: `Payment for ${selectedPackage.title || selectedPackage.Title}`
+      };
+
+      const paymentResult = await paymentService.processPayment(paymentData);
       
-      // Create new payment
-      const totalAmount = selectedPackage.Price + (selectedInsurance ? selectedInsurance.price : 0);
-      const newPayment = addPayment({
-        UserID: currentUser.UserID,
-        BookingID: newBooking.BookingID,
-        Amount: totalAmount,
-        Status: 'completed',
-        PaymentMethod: paymentData.paymentMethod
-      });
-      
-      // Update booking with payment ID
-      updateBooking(newBooking.BookingID, { PaymentID: newPayment.PaymentID });
-      
-      // Show success message
-      toast.success(`🎉 Payment successful! Your booking has been confirmed. Redirecting to your dashboard...`);
-      
-      setShowPaymentModal(false);
-      setSelectedPackage(null);
-      setSelectedInsurance(null);
-      
-      // Redirect to user dashboard using React Router
-      navigate('/user-dashboard');
+      if (paymentResult.success) {
+        // Update booking status to confirmed
+        await bookingService.confirmBooking(selectedPackage.bookingId);
+        
+        // Show success message
+        toast.success(`🎉 Payment successful! Your booking has been confirmed. Redirecting to your dashboard...`);
+        
+        setShowPaymentModal(false);
+        setSelectedPackage(null);
+        setSelectedInsurance(null);
+        
+        // Redirect to user dashboard using React Router
+        navigate('/user-dashboard');
+      } else {
+        toast.error('Payment processing failed. Please try again.');
+      }
     } catch (error) {
       toast.error('❌ Payment failed. Please try again or contact support.');
       console.error('Payment error:', error);
     }
   };
+
+  if (loading) {
+    return (
+      <div className="packages-page">
+        <div className="container">
+          <div className="loading-spinner">
+            <div className="spinner"></div>
+            <p>Loading packages...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="packages-page">

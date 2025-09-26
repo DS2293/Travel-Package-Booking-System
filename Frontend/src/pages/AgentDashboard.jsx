@@ -118,7 +118,7 @@ const AgentDashboard = () => {
               <p>Welcome back, {currentUser.Name}! Manage your packages and view bookings</p>
             </div>
             <div className="header-actions">
-              {/* Refresh button removed - data updates automatically via DataContext */}
+              {/* Data refreshes automatically when component loads */}
             </div>
           </div>
         </div>

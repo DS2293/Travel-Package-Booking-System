@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { bookingService, packageService, paymentService } from '../services';
-import { insuranceTypes } from '../data';
+import { insuranceTypes } from '../constants/insuranceTypes';
 import { toast } from 'react-hot-toast';
 import '../styles/Dashboard.css';
 import { Link } from 'react-router-dom';
@@ -59,7 +59,7 @@ const UserDashboard = () => {
       // Create new booking using direct API call
       const newBookingData = {
         userId: currentUser.UserID,
-        packageId: selectedPackage.packageId,
+        packageId: selectedPackage.packageId || selectedPackage.PackageID,
         startDate: bookingData.startDate,
         endDate: bookingData.endDate,
         status: 'pending',
@@ -130,7 +130,7 @@ const UserDashboard = () => {
 
     try {
       // Create payment using enhanced payment service
-      const totalAmount = selectedPackage.price + (selectedInsurance ? selectedInsurance.price : 0);
+      const totalAmount = (selectedPackage.price || selectedPackage.Price) + (selectedInsurance ? selectedInsurance.price : 0);
       const latestBooking = userBookings[userBookings.length - 1];
       
       const paymentData = {
@@ -139,7 +139,7 @@ const UserDashboard = () => {
         amount: totalAmount,
         paymentMethod: 'CREDIT_CARD',
         cardLastFour: cardNumber.slice(-4).replace(/\s/g, ''),
-        description: `Payment for ${selectedPackage.title}`
+        description: `Payment for ${selectedPackage.title || selectedPackage.Title}`
       };
 
       const paymentResult = await paymentService.processPayment(paymentData);
@@ -161,19 +161,6 @@ const UserDashboard = () => {
       toast.error('Payment processing failed. Please try again.');
     }
   };
-      ));
-      
-      toast.success(`🎉 Payment successful! Your booking has been confirmed.`);
-      
-      setShowPaymentModal(false);
-      setSelectedPackage(null);
-      setSelectedInsurance(null);
-
-    } catch (error) {
-      toast.error('❌ Payment failed. Please try again or contact support.');
-      console.error('Payment error:', error);
-    }
-  };
 
   const canCancelBooking = (booking) => {
     const startDate = new Date(booking.StartDate);
@@ -192,7 +179,11 @@ const UserDashboard = () => {
   };
 
   const getPaymentById = (paymentId) => {
-    return payments.find(payment => payment.PaymentID === paymentId);
+    return userPayments.find(payment => payment.paymentId === paymentId);
+  };
+
+  const getPackageById = (packageId) => {
+    return packages.find(pkg => pkg.packageId === packageId);
   };
 
   // Helper functions for payment input formatting
@@ -238,25 +229,25 @@ const UserDashboard = () => {
         <section className="dashboard-section">
           <h2>Available Travel Packages</h2>
           <div className="packages-grid">
-            {travelPackages.map((pkg) => (
-                              <div key={pkg.PackageID} className="package-card">
+            {packages.map((pkg) => (
+              <div key={pkg.packageId || pkg.PackageID} className="package-card">
                   <div className="package-image">
                     <img 
-                      src={pkg.Image} 
-                      alt={pkg.Title}
+                      src={pkg.image || pkg.Image} 
+                      alt={pkg.title || pkg.Title}
                       onError={(e) => {
                         e.target.style.display = 'none';
                         e.target.parentElement.style.background = 'linear-gradient(45deg, #667eea, #764ba2)';
                       }}
                     />
-                    <div className="package-price">${pkg.Price}</div>
+                    <div className="package-price">${pkg.price || pkg.Price}</div>
                   </div>
                 <div className="package-content">
-                  <h3>{pkg.Title}</h3>
-                  <p>{pkg.Description}</p>
+                  <h3>{pkg.title || pkg.Title}</h3>
+                  <p>{pkg.description || pkg.Description}</p>
                   <div className="package-details">
-                    <span>⏱️ {pkg.Duration}</span>
-                    <span>📋 {pkg.IncludedServices.split(', ').slice(0, 2).join(', ')}</span>
+                    <span>⏱️ {pkg.duration || pkg.Duration}</span>
+                    <span>📋 {(pkg.includedServices || pkg.IncludedServices || '').split(', ').slice(0, 2).join(', ')}</span>
                   </div>
                   <button 
                     onClick={() => handlePackageSelect(pkg)}
@@ -338,7 +329,7 @@ const UserDashboard = () => {
           <div className="modal-overlay">
             <div className="modal">
               <div className="modal-header">
-                <h3>Book Package: {selectedPackage.Title}</h3>
+                <h3>Book Package: {selectedPackage.title || selectedPackage.Title}</h3>
                 <button 
                   onClick={() => setShowBookingModal(false)}
                   className="modal-close"
@@ -348,9 +339,9 @@ const UserDashboard = () => {
               </div>
               <div className="modal-body">
                 <div className="package-summary">
-                  <p><strong>Price:</strong> ${selectedPackage.Price}</p>
-                  <p><strong>Duration:</strong> {selectedPackage.Duration}</p>
-                  <p><strong>Services:</strong> {selectedPackage.IncludedServices}</p>
+                  <p><strong>Price:</strong> ${selectedPackage.price || selectedPackage.Price}</p>
+                  <p><strong>Duration:</strong> {selectedPackage.duration || selectedPackage.Duration}</p>
+                  <p><strong>Services:</strong> {selectedPackage.includedServices || selectedPackage.IncludedServices}</p>
                 </div>
                 
                 <div className="insurance-selection">
@@ -385,7 +376,7 @@ const UserDashboard = () => {
 
                 <div className="total-price">
                   <strong>Total Price: </strong>
-                  ${selectedPackage.Price + (selectedInsurance ? selectedInsurance.price : 0)}
+                  ${(selectedPackage.price || selectedPackage.Price) + (selectedInsurance ? selectedInsurance.price : 0)}
                 </div>
               </div>
               <div className="modal-footer">
@@ -424,12 +415,12 @@ const UserDashboard = () => {
               </div>
               <div className="modal-body">
                 <div className="payment-summary">
-                  <p><strong>Package:</strong> {selectedPackage?.Title}</p>
-                  <p><strong>Package Price:</strong> ${selectedPackage?.Price}</p>
+                  <p><strong>Package:</strong> {selectedPackage?.title || selectedPackage?.Title}</p>
+                  <p><strong>Package Price:</strong> ${selectedPackage?.price || selectedPackage?.Price}</p>
                   {selectedInsurance && (
                     <p><strong>Insurance:</strong> {selectedInsurance.name} - ${selectedInsurance.price}</p>
                   )}
-                  <p><strong>Total Amount:</strong> ${selectedPackage?.Price + (selectedInsurance ? selectedInsurance.price : 0)}</p>
+                  <p><strong>Total Amount:</strong> ${(selectedPackage?.price || selectedPackage?.Price || 0) + (selectedInsurance ? selectedInsurance.price : 0)}</p>
                 </div>
 
                 <div className="payment-methods">

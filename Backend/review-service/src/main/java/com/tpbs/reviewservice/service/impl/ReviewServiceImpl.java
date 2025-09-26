@@ -64,7 +64,11 @@ public class ReviewServiceImpl implements ReviewService {
         } catch (Exception e) {
             log.warn("Failed to fetch user details for userId: {}, error: {}", userId, e.getMessage());
         }
-        return null;
+        // Return fallback data to prevent null pointer exceptions
+        return Map.of(
+            "name", "Unknown User",
+            "email", "user@unknown.com"
+        );
     }
     
     // Enhanced method to get package details via Feign client  
@@ -77,7 +81,12 @@ public class ReviewServiceImpl implements ReviewService {
         } catch (Exception e) {
             log.warn("Failed to fetch package details for packageId: {}, error: {}", packageId, e.getMessage());
         }
-        return null;
+        // Return fallback data to prevent null pointer exceptions
+        return Map.of(
+            "title", "Package Information Unavailable",
+            "destination", "Unknown",
+            "price", 0.0
+        );
     }
     
     // Enhanced method to validate booking exists

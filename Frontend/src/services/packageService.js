@@ -1,8 +1,8 @@
-import { apiRequest, DIRECT_SERVICE_URLS } from './apiClient';
+import { apiRequest } from './apiClient';
 
 class PackageService {
   constructor() {
-    this.baseURL = DIRECT_SERVICE_URLS.PACKAGE_SERVICE;
+    this.baseURL = '/api/packages'; // API Gateway route
   }
 
   async getAllPackages() {

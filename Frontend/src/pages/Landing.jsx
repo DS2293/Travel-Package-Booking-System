@@ -1,13 +1,40 @@
 import { Link } from 'react-router-dom';
-import { useState } from 'react';
-import { useData } from '../contexts/DataContext';
+import { useState, useEffect } from 'react';
+import { packageService, reviewService } from '../services';
 import '../styles/Landing.css';
 
 const Landing = () => {
-  const { travelPackages, reviews, users } = useData();
-  const featuredPackages = travelPackages.slice(0, 3);
+  const [packages, setPackages] = useState([]);
+  const [reviews, setReviews] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const featuredPackages = packages.slice(0, 3);
   const [selectedPackage, setSelectedPackage] = useState(null);
   const [showModal, setShowModal] = useState(false);
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      const [packagesResult, reviewsResult] = await Promise.all([
+        packageService.getAllPackages(),
+        reviewService.getAllReviews()
+      ]);
+      
+      if (packagesResult.success) {
+        setPackages(packagesResult.data);
+      }
+      if (reviewsResult.success) {
+        setReviews(reviewsResult.data);
+      }
+    } catch (error) {
+      console.error('Failed to load data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleViewDetails = (pkg) => {
     setSelectedPackage(pkg);

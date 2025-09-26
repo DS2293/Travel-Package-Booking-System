@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { userService } from '../services';
+import { userService, packageService, bookingService, paymentService, assistanceService } from '../services';
 import { toast } from 'react-hot-toast';
 import LoadingSpinner from '../components/LoadingSpinner';
 import '../styles/Dashboard.css';
@@ -33,23 +33,20 @@ const AdminDashboard = () => {
   const loadAdminData = async () => {
     setIsLoading(true);
     try {
-      // Load users from backend
-      const usersResponse = await userService.getAllUsers();
-      if (usersResponse.success) {
-        setAllUsers(usersResponse.data || []);
-      }
+      // Load all data from backend services
+      const [usersResponse, packagesResponse, bookingsResponse, paymentsResponse, assistanceResponse] = await Promise.all([
+        userService.getAllUsers(),
+        packageService.getAllPackages(),
+        bookingService.getAllBookings(),
+        paymentService.getAllPayments(),
+        assistanceService.getAllAssistanceRequests()
+      ]);
       
-      // TODO: Load other data when services are available
-      // const packagesResponse = await packageService.getAllPackages();
-      // const bookingsResponse = await bookingService.getAllBookings();
-      // const paymentsResponse = await paymentService.getAllPayments();
-      // const assistanceResponse = await assistanceService.getAllRequests();
-      
-      // For now, set empty arrays for other services
-      setAllPackages([]);
-      setAllBookings([]);
-      setAllPayments([]);
-      setAllAssistanceRequests([]);
+      setAllUsers(usersResponse.success ? usersResponse.data || [] : []);
+      setAllPackages(packagesResponse.success ? packagesResponse.data || [] : []);
+      setAllBookings(bookingsResponse.success ? bookingsResponse.data || [] : []);
+      setAllPayments(paymentsResponse.success ? paymentsResponse.data || [] : []);
+      setAllAssistanceRequests(assistanceResponse.success ? assistanceResponse.data || [] : []);
       
     } catch (error) {
       console.error('Error loading admin data:', error);
@@ -62,9 +59,14 @@ const AdminDashboard = () => {
   // Refresh all data
   const refreshData = async () => {
     setIsRefreshing(true);
-    await loadAdminData();
-    setIsRefreshing(false);
-    toast.success('Dashboard data refreshed!');
+    try {
+      await loadAdminData();
+      toast.success('Dashboard data refreshed!');
+    } catch (error) {
+      toast.error('Failed to refresh data');
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   // Calculate statistics using helper functions

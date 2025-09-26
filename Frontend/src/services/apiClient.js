@@ -1,20 +1,12 @@
 import axios from 'axios';
 
-// Base URLs - Using API Gateway for centralized routing and direct services for microservice-specific operations
+// Base URL - All requests go through API Gateway for centralized routing, authentication, and load balancing
 const API_BASE_URL = 'http://localhost:8080'; // API Gateway
-const DIRECT_SERVICE_URLS = {
-  PACKAGE_SERVICE: 'http://localhost:8082/api/packages',
-  BOOKING_SERVICE: 'http://localhost:8083/api/bookings', 
-  PAYMENT_SERVICE: 'http://localhost:8084/api/payments',
-  INSURANCE_SERVICE: 'http://localhost:8085/api/insurance',
-  ASSISTANCE_SERVICE: 'http://localhost:8086/api/assistance',
-  REVIEW_SERVICE: 'http://localhost:8087/api/reviews'
-};
 
 // Create axios instance with default configuration
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 10000,
+  timeout: 15000, // Increased timeout for better reliability
   headers: {
     'Content-Type': 'application/json',
   },
@@ -59,18 +51,29 @@ apiClient.interceptors.response.use(
     }
 
     let errorMessage = 'Something went wrong';
+    let errorDetails = null;
     
     if (error.response) {
+      // Server responded with error status
       errorMessage = error.response.data?.message || 
                     error.response.data?.error || 
-                    `Error ${error.response.status}`;
+                    `Server Error ${error.response.status}`;
+      errorDetails = error.response.data;
     } else if (error.request) {
-      errorMessage = 'Cannot connect to server';
+      // Request was made but no response received
+      errorMessage = 'Cannot connect to server. Please check your connection and try again.';
+    } else if (error.code === 'ECONNABORTED') {
+      // Request timeout
+      errorMessage = 'Request timed out. Please try again.';
+    } else {
+      // Something else happened
+      errorMessage = error.message || 'Request failed';
     }
 
     return Promise.resolve({
       success: false,
       error: errorMessage,
+      details: errorDetails,
       status: error.response?.status
     });
   }
@@ -95,11 +98,13 @@ export const apiRequest = async (endpoint, options = {}) => {
     console.error(`💥 API request failed for ${endpoint}:`, error);
     return {
       success: false,
-      error: error.message || 'Request failed'
+      error: error.error || error.message || 'Request failed',
+      details: error.details || null,
+      status: error.status || null
     };
   }
 };
 
-// Export base URLs for direct service access
-export { API_BASE_URL, DIRECT_SERVICE_URLS };
+// Export base URL for API Gateway access
+export { API_BASE_URL };
 export default apiClient; 

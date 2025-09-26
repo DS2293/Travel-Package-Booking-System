@@ -1,8 +1,8 @@
-import { apiRequest, DIRECT_SERVICE_URLS } from './apiClient';
+import { apiRequest } from './apiClient';
 
 class PaymentService {
   constructor() {
-    this.baseURL = DIRECT_SERVICE_URLS.PAYMENT_SERVICE;
+    this.baseURL = '/api/payments'; // API Gateway route
   }
 
   async getAllPayments() {

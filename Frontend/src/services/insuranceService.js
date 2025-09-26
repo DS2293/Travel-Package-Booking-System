@@ -1,8 +1,8 @@
-import { apiRequest, DIRECT_SERVICE_URLS } from './apiClient';
+import { apiRequest } from './apiClient';
 
 class InsuranceService {
   constructor() {
-    this.baseURL = DIRECT_SERVICE_URLS.INSURANCE_SERVICE;
+    this.baseURL = '/api/insurance'; // API Gateway route
   }
 
   async getAllInsurance() {

@@ -1,8 +1,8 @@
-import { apiRequest, DIRECT_SERVICE_URLS } from './apiClient';
+import { apiRequest } from './apiClient';
 
 class BookingService {
   constructor() {
-    this.baseURL = DIRECT_SERVICE_URLS.BOOKING_SERVICE;
+    this.baseURL = '/api/bookings'; // API Gateway route
   }
 
   async getAllBookings() {

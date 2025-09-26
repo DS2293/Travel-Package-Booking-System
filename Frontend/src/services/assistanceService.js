@@ -1,8 +1,8 @@
-import { apiRequest, DIRECT_SERVICE_URLS } from './apiClient';
+import { apiRequest } from './apiClient';
 
 class AssistanceService {
   constructor() {
-    this.baseURL = DIRECT_SERVICE_URLS.ASSISTANCE_SERVICE;
+    this.baseURL = '/api/assistance'; // API Gateway route
   }
 
   async getAllAssistanceRequests() {

@@ -34,14 +34,13 @@ public class AssistanceRequestServiceImpl implements AssistanceRequestService {
             }
         } catch (Exception e) {
             log.warn("Failed to fetch user details for userId: {}, error: {}", userId, e.getMessage());
-            // Return fallback user info to prevent NPEs
-            return java.util.Map.of(
-                "name", "Unknown User",
-                "email", "unknown@example.com",
-                "contactNumber", "N/A"
-            );
         }
-        return null;
+        // Return fallback user info to prevent NPEs
+        return java.util.Map.of(
+            "name", "Unknown User",
+            "email", "unknown@example.com",
+            "contactNumber", "N/A"
+        );
     }    // Enhanced method to get booking details via Feign client
     @SuppressWarnings("unchecked")
     private Map<String, Object> getBookingDetails(Long userId) {
@@ -63,7 +62,12 @@ public class AssistanceRequestServiceImpl implements AssistanceRequestService {
         } catch (Exception e) {
             log.warn("Failed to fetch booking details for userId: {}, error: {}", userId, e.getMessage());
         }
-        return null;
+        // Return fallback booking data
+        return Map.of(
+            "bookingId", 0L,
+            "status", "Unknown",
+            "packageTitle", "No booking information available"
+        );
     }
 
     private AssistanceRequestDto toDto(AssistanceRequest ar) {

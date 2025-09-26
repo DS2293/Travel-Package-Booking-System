@@ -187,18 +187,32 @@ public class PaymentServiceImpl implements PaymentService {
             PaymentDto payment = getPaymentById(paymentId);
             result.put("payment", payment);
             
-            // Fetch booking details
-            ResponseEntity<Map<String, Object>> bookingResponse = 
-                bookingServiceClient.getBookingById(payment.getBookingId());
-            if (bookingResponse.getStatusCode().is2xxSuccessful() && bookingResponse.getBody() != null) {
-                result.put("booking", bookingResponse.getBody().get("data"));
+            // Fetch booking details with fallback
+            try {
+                ResponseEntity<Map<String, Object>> bookingResponse = 
+                    bookingServiceClient.getBookingById(payment.getBookingId());
+                if (bookingResponse.getStatusCode().is2xxSuccessful() && bookingResponse.getBody() != null) {
+                    result.put("booking", bookingResponse.getBody().get("data"));
+                } else {
+                    result.put("booking", getBookingFallback(payment.getBookingId()));
+                }
+            } catch (Exception e) {
+                log.warn("Failed to fetch booking details for bookingId: {}, using fallback", payment.getBookingId());
+                result.put("booking", getBookingFallback(payment.getBookingId()));
             }
             
-            // Fetch user details
-            ResponseEntity<Map<String, Object>> userResponse = 
-                userServiceClient.getUserById(payment.getUserId());
-            if (userResponse.getStatusCode().is2xxSuccessful() && userResponse.getBody() != null) {
-                result.put("user", userResponse.getBody().get("data"));
+            // Fetch user details with fallback
+            try {
+                ResponseEntity<Map<String, Object>> userResponse = 
+                    userServiceClient.getUserById(payment.getUserId());
+                if (userResponse.getStatusCode().is2xxSuccessful() && userResponse.getBody() != null) {
+                    result.put("user", userResponse.getBody().get("data"));
+                } else {
+                    result.put("user", getUserFallback(payment.getUserId()));
+                }
+            } catch (Exception e) {
+                log.warn("Failed to fetch user details for userId: {}, using fallback", payment.getUserId());
+                result.put("user", getUserFallback(payment.getUserId()));
             }
             
         } catch (Exception e) {
@@ -207,6 +221,23 @@ public class PaymentServiceImpl implements PaymentService {
         }
         
         return result;
+    }
+    
+    // Fallback methods for cross-service communication failures
+    private Map<String, Object> getBookingFallback(Long bookingId) {
+        return Map.of(
+            "bookingId", bookingId,
+            "status", "Unknown",
+            "packageTitle", "Booking information unavailable"
+        );
+    }
+    
+    private Map<String, Object> getUserFallback(Long userId) {
+        return Map.of(
+            "userId", userId,
+            "name", "Unknown User",
+            "email", "user@unknown.com"
+        );
     }
     
     private PaymentDto toDto(Payment payment) {
