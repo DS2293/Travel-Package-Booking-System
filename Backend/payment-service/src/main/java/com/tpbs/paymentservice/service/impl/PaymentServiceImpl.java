@@ -66,6 +66,12 @@ public class PaymentServiceImpl implements PaymentService {
         payment.setPaymentDate(LocalDateTime.now());
         payment.setStatus("PENDING");
         Payment savedPayment = paymentRepository.save(payment);
+        
+        // ✅ NEW: Automatically link payment back to booking
+        if (savedPayment.getBookingId() != null) {
+            linkPaymentToBooking(savedPayment.getBookingId(), savedPayment.getPaymentId());
+        }
+        
         return toDto(savedPayment);
     }
       @Override
@@ -126,6 +132,12 @@ public class PaymentServiceImpl implements PaymentService {
             
             Payment processedPayment = paymentRepository.save(payment);
             log.info("Payment processed successfully with transaction ID: {}", transactionId);
+            
+            // ✅ NEW: Link payment to booking after successful processing
+            if (processedPayment.getBookingId() != null) {
+                linkPaymentToBooking(processedPayment.getBookingId(), processedPayment.getPaymentId());
+            }
+            
             return toDto(processedPayment);
             
         } catch (Exception e) {
@@ -268,5 +280,27 @@ public class PaymentServiceImpl implements PaymentService {
                 dto.getCardLastFour(),
                 dto.getDescription()
         );
+    }
+
+    /**
+     * Links a payment to its corresponding booking
+     */
+    private void linkPaymentToBooking(Long bookingId, Long paymentId) {
+        try {
+            log.debug("Linking payment {} to booking {}", paymentId, bookingId);
+            ResponseEntity<Map<String, Object>> response = 
+                bookingServiceClient.updateBookingPayment(bookingId, paymentId);
+                
+            if (response.getStatusCode().is2xxSuccessful()) {
+                log.info("Successfully linked payment {} to booking {}", paymentId, bookingId);
+            } else {
+                log.warn("Failed to link payment {} to booking {}: HTTP {}", 
+                        paymentId, bookingId, response.getStatusCode());
+            }
+        } catch (Exception e) {
+            log.error("Error linking payment {} to booking {}: {}", 
+                    paymentId, bookingId, e.getMessage());
+            // Don't throw exception - payment creation should still succeed even if linking fails
+        }
     }
 }

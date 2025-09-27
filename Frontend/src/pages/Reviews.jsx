@@ -20,6 +20,8 @@ const Reviews = () => {
     loadData();
   }, []);
 
+
+
   const loadData = async () => {
     setLoading(true);
     try {
@@ -29,14 +31,21 @@ const Reviews = () => {
       ]);
       
       if (reviewsResult.success) {
-        setAllReviews(reviewsResult.data);
+        // Handle potential double-wrapping of API responses
+        const actualReviewsData = reviewsResult.data?.data || reviewsResult.data;
+        setAllReviews(Array.isArray(actualReviewsData) ? actualReviewsData : []);
       }
+      
       if (packagesResult.success) {
-        setPackages(packagesResult.data);
+        // Handle potential double-wrapping of API responses
+        const actualPackagesData = packagesResult.data?.data || packagesResult.data;
+        setPackages(Array.isArray(actualPackagesData) ? actualPackagesData : []);
+      } else {
+        toast.error('Failed to load packages for review form');
       }
     } catch (error) {
       console.error('Failed to load data:', error);
-      toast.error('Failed to load reviews');
+      toast.error('Failed to load data');
     } finally {
       setLoading(false);
     }
@@ -45,32 +54,46 @@ const Reviews = () => {
   const handleReviewSubmit = async (e) => {
     e.preventDefault();
     
+    // Enhanced validation
     if (!newReview.comment.trim() || !newReview.packageId) {
       toast.error('Please fill in all fields');
       return;
     }
+    
+    if (newReview.rating < 1 || newReview.rating > 5) {
+      toast.error('Rating must be between 1 and 5');
+      return;
+    }
+    
+    if (newReview.comment.trim().length === 0) {
+      toast.error('Please provide a comment');
+      return;
+    }
 
     try {
-      // Create new review using direct API call
+      // Create new review using direct API call (UserID will be extracted from JWT)
       const reviewData = {
-        userID: currentUser.UserID,
-        packageID: parseInt(newReview.packageId),
-        rating: newReview.rating,
-        comment: newReview.comment
+        PackageID: parseInt(newReview.packageId),
+        Rating: newReview.rating,
+        Comment: newReview.comment
       };
-
+      
       const result = await reviewService.createReview(reviewData);
+      
       if (result.success) {
-        setAllReviews([...allReviews, result.data]);
+        setAllReviews(Array.isArray(allReviews) ? [...allReviews, result.data] : [result.data]);
         setNewReview({ rating: 5, comment: '', packageId: '' });
         setShowReviewForm(false);
         toast.success('Review submitted successfully');
       } else {
-        toast.error('Failed to submit review');
+        console.error('❌ Review submission failed:', result);
+        const errorMsg = result.error || result.message || 'Failed to submit review';
+        toast.error(errorMsg);
       }
     } catch (error) {
-      console.error('Failed to submit review:', error);
-      toast.error('Failed to submit review');
+      console.error('❌ Exception during review submission:', error);
+      const errorMsg = error.response?.data?.message || error.message || 'Failed to submit review';
+      toast.error(errorMsg);
     }
   };
 
@@ -80,11 +103,11 @@ const Reviews = () => {
       const result = await reviewService.addAgentReply(reviewId, { agentReply: reply });
       if (result.success) {
         // Update local state
-        setAllReviews(allReviews.map(review => 
+        setAllReviews(Array.isArray(allReviews) ? allReviews.map(review => 
           (review.reviewID || review.ReviewID) === reviewId 
             ? { ...review, agentReply: reply }
             : review
-        ));
+        ) : []);
         toast.success('Reply added successfully');
       } else {
         toast.error('Failed to add reply');
@@ -101,18 +124,28 @@ const Reviews = () => {
   };
 
   const getPackageById = (packageId) => {
-    return packages.find(pkg => (pkg.packageId || pkg.PackageID) === packageId);
+    return Array.isArray(packages) ? packages.find(pkg => (pkg.packageId || pkg.PackageID) === packageId) : null;
   };
 
   const renderStars = (rating) => {
     return '⭐'.repeat(rating) + '☆'.repeat(5 - rating);
   };
 
+  // Helper function to get user role (handles both camelCase and PascalCase)
+  const getUserRole = () => {
+    return currentUser?.role || currentUser?.Role;
+  };
+
+  // Helper function to get user ID (handles both camelCase and PascalCase)
+  const getUserId = () => {
+    return currentUser?.userId || currentUser?.UserID;
+  };
+
   const canReplyToReview = (review) => {
-    if (currentUser.Role !== 'agent') return false;
+    if (getUserRole() !== 'agent') return false;
     
     const packageInfo = getPackageById(review.PackageID);
-    return packageInfo && packageInfo.AgentID === currentUser.UserID;
+    return packageInfo && packageInfo.AgentID === getUserId();
   };
 
   return (
@@ -121,13 +154,33 @@ const Reviews = () => {
         <div className="reviews-header">
           <h1>Customer Reviews</h1>
           <p>Read what our travelers have to say about their experiences</p>
-          {isAuthenticated && currentUser.Role === 'customer' && (
+          
+
+          {isAuthenticated && getUserRole() === 'customer' && (
             <button 
               onClick={() => setShowReviewForm(true)}
-              className="btn btn-primary"
+              className="btn btn-primary write-review-btn"
             >
-              Write a Review
+              ✍️ Write a Review
             </button>
+          )}
+          
+          {/* Show alternative message for non-customers */}
+          {isAuthenticated && getUserRole() !== 'customer' && getUserRole() && (
+            <div className="role-info">
+              <p style={{ color: '#666', fontStyle: 'italic' }}>
+                Only customers can write reviews. You are logged in as: <strong>{getUserRole()}</strong>
+              </p>
+            </div>
+          )}
+          
+          {/* Show login prompt for unauthenticated users */}
+          {!isAuthenticated && (
+            <div className="login-prompt">
+              <p style={{ color: '#666', fontStyle: 'italic' }}>
+                <a href="/signin" style={{ color: '#007bff' }}>Sign in</a> as a customer to write reviews
+              </p>
+            </div>
           )}
         </div>
 
@@ -155,11 +208,14 @@ const Reviews = () => {
                       required
                     >
                       <option value="">Choose a package...</option>
-                      {travelPackages.map((pkg) => (
-                        <option key={pkg.PackageID} value={pkg.PackageID}>
-                          {pkg.Title}
+                      {Array.isArray(packages) ? packages.map((pkg) => (
+                        <option key={pkg.packageId || pkg.PackageID} value={pkg.packageId || pkg.PackageID}>
+                          {pkg.title || pkg.Title}
                         </option>
-                      ))}
+                      )) : (
+                        <option value="">No packages available</option>
+                      )}
+
                     </select>
                   </div>
 
@@ -211,7 +267,7 @@ const Reviews = () => {
 
         {/* Reviews List */}
         <div className="reviews-container">
-          {allReviews.length === 0 ? (
+          {!Array.isArray(allReviews) || allReviews.length === 0 ? (
             <div className="no-reviews">
               <p>No reviews yet. Be the first to share your experience!</p>
             </div>
@@ -290,18 +346,21 @@ const Reviews = () => {
             <h3>Review Summary</h3>
             <div className="stats-grid">
               <div className="stat-item">
-                <span className="stat-number">{allReviews.length}</span>
+                <span className="stat-number">{Array.isArray(allReviews) ? allReviews.length : 0}</span>
                 <span className="stat-label">Total Reviews</span>
               </div>
               <div className="stat-item">
                 <span className="stat-number">
-                  {(allReviews.reduce((sum, review) => sum + review.Rating, 0) / allReviews.length).toFixed(1)}
+                  {Array.isArray(allReviews) && allReviews.length > 0 
+                    ? (allReviews.reduce((sum, review) => sum + review.Rating, 0) / allReviews.length).toFixed(1)
+                    : '0.0'
+                  }
                 </span>
                 <span className="stat-label">Average Rating</span>
               </div>
               <div className="stat-item">
                 <span className="stat-number">
-                  {allReviews.filter(review => review.Rating >= 4).length}
+                  {Array.isArray(allReviews) ? allReviews.filter(review => review.Rating >= 4).length : 0}
                 </span>
                 <span className="stat-label">4+ Star Reviews</span>
               </div>

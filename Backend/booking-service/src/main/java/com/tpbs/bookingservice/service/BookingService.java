@@ -17,6 +17,9 @@ public interface BookingService {
     BookingDto cancelBooking(Long id);
     BookingDto confirmBooking(Long id);
     
+    // Method to link payment to booking
+    BookingDto updateBookingPayment(Long bookingId, Long paymentId);
+    
     // Enhanced methods with cross-service data
     List<Map<String, Object>> getUserBookingsWithPackageDetails(Long userId);
     Map<String, Object> getAgentDashboardData(Long agentId);

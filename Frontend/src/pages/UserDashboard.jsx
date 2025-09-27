@@ -12,6 +12,7 @@ const UserDashboard = () => {
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedInsurance, setSelectedInsurance] = useState(null);
+  const [currentBooking, setCurrentBooking] = useState(null); // Store the booking being processed
   const [userBookings, setUserBookings] = useState([]);
   const [userPayments, setUserPayments] = useState([]);
   const [packages, setPackages] = useState([]);
@@ -19,27 +20,33 @@ const UserDashboard = () => {
 
   useEffect(() => {
     loadUserData();
-  }, [currentUser.UserID]);
+  }, []); // No dependency on currentUser.UserID since JWT handles authentication
 
   const loadUserData = async () => {
     setLoading(true);
     try {
-      // Use enhanced booking service to get bookings with package details
-      const bookingsResult = await bookingService.getUserBookingsWithDetails(currentUser.UserID);
+      // Use JWT-based booking service to get bookings with package details
+      const bookingsResult = await bookingService.getMyBookingsWithDetails();
       if (bookingsResult.success) {
-        setUserBookings(bookingsResult.data);
+        // The API response is wrapped, so we need to access bookingsResult.data.data
+        const actualBookingsData = bookingsResult.data.data || bookingsResult.data;
+        setUserBookings(Array.isArray(actualBookingsData) ? actualBookingsData : []);
       }
 
-      // Get user's payments
-      const paymentsResult = await paymentService.getPaymentsByUserId(currentUser.UserID);
+      // Get user's payments (will need to update payment service for JWT)
+      const paymentsResult = await paymentService.getMyPayments();
       if (paymentsResult.success) {
-        setUserPayments(paymentsResult.data);
+        // Handle potential double-wrapping for payments too
+        const actualPaymentsData = paymentsResult.data.data || paymentsResult.data;
+        setUserPayments(Array.isArray(actualPaymentsData) ? actualPaymentsData : []);
       }
 
       // Get all packages for booking
       const packagesResult = await packageService.getAllPackages();
       if (packagesResult.success) {
-        setPackages(packagesResult.data);
+        // Handle potential double-wrapping for packages too
+        const actualPackagesData = packagesResult.data.data || packagesResult.data;
+        setPackages(Array.isArray(actualPackagesData) ? actualPackagesData : []);
       }
     } catch (error) {
       console.error('Failed to load user data:', error);
@@ -56,24 +63,61 @@ const UserDashboard = () => {
 
   const handleBookingSubmit = async (bookingData) => {
     try {
-      // Create new booking using direct API call
+      // Validate dates
+      if (!bookingData.startDate || !bookingData.endDate) {
+        toast.error('Please select both start and end dates');
+        return;
+      }
+
+      // Validate date format and values
+      const startDate = new Date(bookingData.startDate);
+      const endDate = new Date(bookingData.endDate);
+      const today = new Date();
+
+      if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+        toast.error('Invalid date format');
+        return;
+      }
+
+      if (startDate <= today) {
+        toast.error('Start date must be in the future');
+        return;
+      }
+
+      if (endDate <= startDate) {
+        toast.error('End date must be after start date');
+        return;
+      }
+
+      // Create new booking using JWT-based API call
       const newBookingData = {
-        userId: currentUser.UserID,
+        // userId will be extracted from JWT token by backend
         packageId: selectedPackage.packageId || selectedPackage.PackageID,
         startDate: bookingData.startDate,
         endDate: bookingData.endDate,
-        status: 'pending',
-        paymentId: null
+        status: 'pending'
+        // paymentId will be set automatically when payment is processed
       };
+
+      console.log('📅 Booking data being sent:', newBookingData);
 
       const result = await bookingService.createBooking(newBookingData);
       if (result.success) {
-        setUserBookings([...userBookings, { booking: result.data, package: selectedPackage }]);
+        // ✅ NEW: Store the actual booking data (handle double-wrapped response)
+        const actualBookingData = result.data.data || result.data;
+        setCurrentBooking(actualBookingData);
+        console.log('✅ Booking stored in state:', actualBookingData);
+        
+        // Update the bookings list for UI
+        setUserBookings([...userBookings, { booking: actualBookingData, package: selectedPackage }]);
+        
+        // Proceed to payment
         setShowBookingModal(false);
         setShowPaymentModal(true);
         toast.success('Booking created successfully!');
       } else {
-        toast.error('Failed to create booking');
+        console.error('❌ Booking creation failed:', result);
+        toast.error('Failed to create booking: ' + (result.error || 'Unknown error'));
       }
     } catch (error) {
       console.error('Failed to create booking:', error);
@@ -129,27 +173,52 @@ const UserDashboard = () => {
     }
 
     try {
-      // Create payment using enhanced payment service
+      // Create payment using JWT-based payment service
       const totalAmount = (selectedPackage.price || selectedPackage.Price) + (selectedInsurance ? selectedInsurance.price : 0);
-      const latestBooking = userBookings[userBookings.length - 1];
+      
+      console.log('💰 Payment processing data:', {
+        selectedPackage,
+        selectedInsurance,
+        totalAmount,
+        currentBooking
+      });
+      
+      // ✅ NEW: Use the stored booking instead of trying to find it in the array
+      if (!currentBooking) {
+        toast.error('No booking found. Please create a booking first.');
+        return;
+      }
+      
+      // Get booking ID from the stored booking
+      const bookingId = currentBooking.bookingId || currentBooking.BookingID;
+      
+      if (!bookingId) {
+        toast.error('Invalid booking data. Please try creating the booking again.');
+        return;
+      }
       
       const paymentData = {
-        userId: currentUser.UserID,
-        bookingId: latestBooking.booking.bookingId,
+        // userId will be extracted from JWT token by backend
+        bookingId: bookingId,
         amount: totalAmount,
         paymentMethod: 'CREDIT_CARD',
         cardLastFour: cardNumber.slice(-4).replace(/\s/g, ''),
         description: `Payment for ${selectedPackage.title || selectedPackage.Title}`
       };
 
+      console.log('💳 Payment data being sent:', paymentData);
+
       const paymentResult = await paymentService.processPayment(paymentData);
       
       if (paymentResult.success) {
         // Update booking status to confirmed
-        await bookingService.confirmBooking(latestBooking.booking.bookingId);
+        await bookingService.confirmBooking(bookingId);
         
         toast.success('Payment processed successfully!');
         setShowPaymentModal(false);
+        
+        // ✅ NEW: Clear the current booking since it's completed
+        setCurrentBooking(null);
         
         // Reload user data to get updated information
         await loadUserData();
@@ -162,6 +231,17 @@ const UserDashboard = () => {
     }
   };
 
+  // ✅ NEW: Cleanup functions for modal closing
+  const handleCloseBookingModal = () => {
+    setShowBookingModal(false);
+    setCurrentBooking(null); // Clear stored booking if user cancels
+  };
+
+  const handleClosePaymentModal = () => {
+    setShowPaymentModal(false);
+    setCurrentBooking(null); // Clear stored booking if user cancels payment
+  };
+
   const canCancelBooking = (booking) => {
     const startDate = new Date(booking.StartDate);
     const today = new Date();
@@ -171,11 +251,13 @@ const UserDashboard = () => {
 
   const handleCancelBooking = (bookingId) => {
     // In a real app, this would be sent to the backend
-    setUserBookings(userBookings.map(booking => 
-      booking.BookingID === bookingId 
-        ? { ...booking, Status: 'cancelled' }
-        : booking
-    ));
+    if (Array.isArray(userBookings)) {
+      setUserBookings(userBookings.map(booking => 
+        booking.BookingID === bookingId 
+          ? { ...booking, Status: 'cancelled' }
+          : booking
+      ));
+    }
   };
 
   const getPaymentById = (paymentId) => {
@@ -229,7 +311,7 @@ const UserDashboard = () => {
         <section className="dashboard-section">
           <h2>Available Travel Packages</h2>
           <div className="packages-grid">
-            {packages.map((pkg) => (
+            {packages && packages.length > 0 ? packages.map((pkg) => (
               <div key={pkg.packageId || pkg.PackageID} className="package-card">
                   <div className="package-image">
                     <img 
@@ -257,69 +339,152 @@ const UserDashboard = () => {
                   </button>
                 </div>
               </div>
-            ))}
+            )) : (
+              <p>No packages available at the moment.</p>
+            )}
           </div>
         </section>
 
         {/* User Bookings */}
         <section className="dashboard-section">
-          <h2>Your Bookings</h2>
+          <div className="section-header">
+            <h2>Your Bookings</h2>
+            <div className="booking-stats">
+              <span className="stat-item">
+                <strong>{userBookings.length}</strong> Total Bookings
+              </span>
+            </div>
+          </div>
+          
           {userBookings.length === 0 ? (
             <div className="no-bookings">
-              <p>You haven't made any bookings yet.</p>
+              <div className="empty-state">
+                <div className="empty-icon">🏖️</div>
+                <h3>No bookings yet</h3>
+                <p>Start planning your next adventure by booking a travel package!</p>
+                <button className="btn btn-primary" onClick={() => document.querySelector('.packages-grid').scrollIntoView({ behavior: 'smooth' })}>
+                  Browse Packages
+                </button>
+              </div>
             </div>
           ) : (
-            <div className="bookings-table">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Package</th>
-                    <th>Start Date</th>
-                    <th>End Date</th>
-                    <th>Status</th>
-                    <th>Payment</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {userBookings.map((booking) => {
-                    const packageInfo = getPackageById(booking.PackageID);
-                    const paymentInfo = getPaymentById(booking.PaymentID);
-                    
-                    return (
-                      <tr key={booking.BookingID}>
-                        <td>{packageInfo?.Title}</td>
-                        <td>{new Date(booking.StartDate).toLocaleDateString()}</td>
-                        <td>{new Date(booking.EndDate).toLocaleDateString()}</td>
-                        <td>
-                          <span className={`status status-${booking.Status}`}>
-                            {booking.Status}
+            <div className="bookings-container">
+              <div className="bookings-grid">
+                {userBookings.map((booking) => {
+                  // Handle both nested booking structure and direct booking data
+                  const bookingData = booking.booking || booking;
+                  const packageData = booking.package || getPackageById(bookingData.packageId || bookingData.PackageID);
+                  const paymentInfo = getPaymentById(bookingData.paymentId || bookingData.PaymentID);
+                  
+                  // Calculate trip duration
+                  const startDate = new Date(bookingData.startDate || bookingData.StartDate);
+                  const endDate = new Date(bookingData.endDate || bookingData.EndDate);
+                  const duration = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
+                  
+                  // Get status color
+                  const getStatusColor = (status) => {
+                    switch(status?.toLowerCase()) {
+                      case 'confirmed': return '#28a745';
+                      case 'pending': return '#ffc107';
+                      case 'cancelled': return '#dc3545';
+                      case 'completed': return '#17a2b8';
+                      default: return '#6c757d';
+                    }
+                  };
+                  
+                  return (
+                    <div key={bookingData.bookingId || bookingData.BookingID || `booking-${Date.now()}-${Math.random()}`} className="booking-card">
+                      <div className="booking-header">
+                        <div className="booking-info">
+                          <h4>{packageData?.title || packageData?.Title || 'Package Information Unavailable'}</h4>
+                          <div className="booking-id">Booking ID: #{bookingData.bookingId || bookingData.BookingID}</div>
+                        </div>
+                        <div className="booking-status">
+                          <span 
+                            className="status-badge" 
+                            style={{ backgroundColor: getStatusColor(bookingData.status || bookingData.Status) }}
+                          >
+                            {(bookingData.status || bookingData.Status)?.toUpperCase()}
                           </span>
-                        </td>
-                        <td>
-                          {paymentInfo ? (
-                            <span className={`payment-status payment-${paymentInfo.Status}`}>
-                              {paymentInfo.Status} - ${paymentInfo.Amount}
+                        </div>
+                      </div>
+                      
+                      <div className="booking-details">
+                        <div className="detail-row">
+                          <div className="detail-item">
+                            <span className="detail-label">📅 Check-in</span>
+                            <span className="detail-value">{startDate.toLocaleDateString('en-US', { 
+                              weekday: 'short', 
+                              month: 'short', 
+                              day: 'numeric' 
+                            })}</span>
+                          </div>
+                          <div className="detail-item">
+                            <span className="detail-label">📅 Check-out</span>
+                            <span className="detail-value">{endDate.toLocaleDateString('en-US', { 
+                              weekday: 'short', 
+                              month: 'short', 
+                              day: 'numeric' 
+                            })}</span>
+                          </div>
+                        </div>
+                        
+                        <div className="detail-row">
+                          <div className="detail-item">
+                            <span className="detail-label">⏰ Duration</span>
+                            <span className="detail-value">{duration} days</span>
+                          </div>
+                          <div className="detail-item">
+                            <span className="detail-label">💰 Amount</span>
+                            <span className="detail-value">
+                              ${packageData?.price || packageData?.Price || 'N/A'}
                             </span>
-                          ) : (
-                            <span className="payment-pending">Payment Pending</span>
-                          )}
-                        </td>
-                        <td>
-                          {canCancelBooking(booking) && booking.Status !== 'cancelled' && (
-                            <button
-                              onClick={() => handleCancelBooking(booking.BookingID)}
-                              className="btn btn-danger btn-sm"
-                            >
-                              Cancel
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                          </div>
+                        </div>
+                        
+                        <div className="detail-row">
+                          <div className="detail-item full-width">
+                            <span className="detail-label">💳 Payment Status</span>
+                            <span className="detail-value">
+                              {paymentInfo ? (
+                                <span className={`payment-badge payment-${(paymentInfo.status || paymentInfo.Status)?.toLowerCase()}`}>
+                                  {(paymentInfo.status || paymentInfo.Status)?.toUpperCase()} - ${paymentInfo.amount || paymentInfo.Amount}
+                                </span>
+                              ) : (
+                                <span className="payment-badge payment-pending">PAYMENT PENDING</span>
+                              )}
+                            </span>
+                          </div>
+                        </div>
+                        
+                        {packageData?.includedServices || packageData?.IncludedServices ? (
+                          <div className="detail-row">
+                            <div className="detail-item full-width">
+                              <span className="detail-label">🎯 Services</span>
+                              <span className="detail-value services-list">
+                                {(packageData.includedServices || packageData.IncludedServices).split(', ').map((service, index) => (
+                                  <span key={index} className="service-tag">{service.trim()}</span>
+                                ))}
+                              </span>
+                            </div>
+                          </div>
+                        ) : null}
+                      </div>
+                      
+                                             <div className="booking-actions">
+                         {canCancelBooking(bookingData) && (bookingData.status || bookingData.Status)?.toLowerCase() !== 'cancelled' && (
+                           <button
+                             onClick={() => handleCancelBooking(bookingData.bookingId || bookingData.BookingID)}
+                             className="btn btn-outline-danger btn-sm"
+                           >
+                             Cancel Booking
+                           </button>
+                         )}
+                       </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
         </section>
@@ -331,7 +496,7 @@ const UserDashboard = () => {
               <div className="modal-header">
                 <h3>Book Package: {selectedPackage.title || selectedPackage.Title}</h3>
                 <button 
-                  onClick={() => setShowBookingModal(false)}
+                  onClick={handleCloseBookingModal}
                   className="modal-close"
                 >
                   ×
@@ -381,7 +546,7 @@ const UserDashboard = () => {
               </div>
               <div className="modal-footer">
                 <button 
-                  onClick={() => setShowBookingModal(false)}
+                  onClick={handleCloseBookingModal}
                   className="btn btn-secondary"
                 >
                   Cancel
@@ -407,7 +572,7 @@ const UserDashboard = () => {
               <div className="modal-header">
                 <h3>Complete Payment</h3>
                 <button 
-                  onClick={() => setShowPaymentModal(false)}
+                  onClick={handleClosePaymentModal}
                   className="modal-close"
                 >
                   ×
@@ -484,7 +649,7 @@ const UserDashboard = () => {
               </div>
               <div className="modal-footer">
                 <button 
-                  onClick={() => setShowPaymentModal(false)}
+                  onClick={handleClosePaymentModal}
                   className="btn btn-secondary"
                 >
                   Cancel

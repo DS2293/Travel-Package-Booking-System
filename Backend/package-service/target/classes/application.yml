@@ -26,6 +26,11 @@ feign:
     user-service:
       url: http://localhost:8081
 
+# JWT Configuration
+jwt:
+  secret: myVerySecretKeyForTravelPackageBookingSystemThatIsLongEnough
+  expiration: 86400
+
 # Eureka Client Configuration
 eureka:
   client:

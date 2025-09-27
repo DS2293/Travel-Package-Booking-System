@@ -108,6 +108,20 @@ public class BookingServiceImpl implements BookingService {
     }
     
     @Override
+    public BookingDto updateBookingPayment(Long bookingId, Long paymentId) {
+        log.debug("Updating booking {} with payment ID: {}", bookingId, paymentId);
+        
+        Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new RuntimeException("Booking not found with id: " + bookingId));
+        
+        booking.setPaymentId(paymentId);
+        Booking updatedBooking = bookingRepository.save(booking);
+        
+        log.info("Successfully linked payment {} to booking {}", paymentId, bookingId);
+        return toDto(updatedBooking);
+    }
+    
+    @Override
     @Transactional(readOnly = true)
     public List<Map<String, Object>> getUserBookingsWithPackageDetails(Long userId) {
         List<BookingDto> userBookings = getBookingsByUser(userId);

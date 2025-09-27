@@ -22,12 +22,17 @@ spring:
 # Feign client configuration
 feign:
   clients:
-    user-service:
-      url: http://localhost:8081
     package-service:
       url: http://localhost:8082
     booking-service:
       url: http://localhost:8083
+    user-service:
+      url: http://localhost:8081
+
+# JWT Configuration
+jwt:
+  secret: myVerySecretKeyForTravelPackageBookingSystemThatIsLongEnough
+  expiration: 86400
 
 # Eureka Client Configuration
 eureka:

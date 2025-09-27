@@ -4,6 +4,7 @@ import jakarta.validation.constraints.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import com.fasterxml.jackson.annotation.JsonSetter;
 
 import java.math.BigDecimal;
 
@@ -27,6 +28,18 @@ public class TravelPackageDto {
     @NotNull(message = "Price is required")
     @DecimalMin(value = "0.0", inclusive = false, message = "Price must be greater than 0")
     private BigDecimal price;
+    
+    // Custom setter to handle string to BigDecimal conversion
+    @JsonSetter("price")
+    public void setPrice(Object price) {
+        if (price instanceof String) {
+            this.price = new BigDecimal((String) price);
+        } else if (price instanceof Number) {
+            this.price = BigDecimal.valueOf(((Number) price).doubleValue());
+        } else if (price instanceof BigDecimal) {
+            this.price = (BigDecimal) price;
+        }
+    }
     
     private String includedServices;
     

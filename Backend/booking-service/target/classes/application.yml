@@ -28,6 +28,11 @@ feign:
     payment-service:
       url: http://localhost:8084
 
+# JWT Configuration
+jwt:
+  secret: myVerySecretKeyForTravelPackageBookingSystemThatIsLongEnough
+  expiration: 86400
+
 # Eureka Client Configuration
 eureka:
   client:

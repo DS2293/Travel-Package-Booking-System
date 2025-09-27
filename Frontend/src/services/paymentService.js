@@ -17,6 +17,11 @@ class PaymentService {
     return await apiRequest(`${this.baseURL}/user/${userId}`);
   }
 
+  // JWT-based methods (user ID extracted from token)
+  async getMyPayments() {
+    return await apiRequest(`${this.baseURL}/my-payments`);
+  }
+
   async getPaymentByBookingId(bookingId) {
     return await apiRequest(`${this.baseURL}/booking/${bookingId}`);
   }
@@ -41,6 +46,7 @@ class PaymentService {
       data: paymentData
     });
   }
+  
   async refundPayment(paymentId) {
     return await apiRequest(`${this.baseURL}/${paymentId}/refund`, {
       method: 'PUT'
@@ -50,6 +56,11 @@ class PaymentService {
   // Enhanced methods with cross-service data
   async getUserPaymentsWithDetails(userId) {
     return await apiRequest(`${this.baseURL}/user/${userId}/with-details`);
+  }
+
+  // JWT-based enhanced method
+  async getMyPaymentsWithDetails() {
+    return await apiRequest(`${this.baseURL}/my-payments/with-details`);
   }
   
   async getPaymentWithDetails(paymentId) {

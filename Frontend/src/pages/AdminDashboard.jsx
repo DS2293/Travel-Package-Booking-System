@@ -42,11 +42,12 @@ const AdminDashboard = () => {
         assistanceService.getAllAssistanceRequests()
       ]);
       
-      setAllUsers(usersResponse.success ? usersResponse.data || [] : []);
-      setAllPackages(packagesResponse.success ? packagesResponse.data || [] : []);
-      setAllBookings(bookingsResponse.success ? bookingsResponse.data || [] : []);
-      setAllPayments(paymentsResponse.success ? paymentsResponse.data || [] : []);
-      setAllAssistanceRequests(assistanceResponse.success ? assistanceResponse.data || [] : []);
+      // Handle potential double-wrapping of API responses
+      setAllUsers(usersResponse.success ? (Array.isArray(usersResponse.data?.data) ? usersResponse.data.data : (Array.isArray(usersResponse.data) ? usersResponse.data : [])) : []);
+      setAllPackages(packagesResponse.success ? (Array.isArray(packagesResponse.data?.data) ? packagesResponse.data.data : (Array.isArray(packagesResponse.data) ? packagesResponse.data : [])) : []);
+      setAllBookings(bookingsResponse.success ? (Array.isArray(bookingsResponse.data?.data) ? bookingsResponse.data.data : (Array.isArray(bookingsResponse.data) ? bookingsResponse.data : [])) : []);
+      setAllPayments(paymentsResponse.success ? (Array.isArray(paymentsResponse.data?.data) ? paymentsResponse.data.data : (Array.isArray(paymentsResponse.data) ? paymentsResponse.data : [])) : []);
+      setAllAssistanceRequests(assistanceResponse.success ? (Array.isArray(assistanceResponse.data?.data) ? assistanceResponse.data.data : (Array.isArray(assistanceResponse.data) ? assistanceResponse.data : [])) : []);
       
     } catch (error) {
       console.error('Error loading admin data:', error);
@@ -69,16 +70,16 @@ const AdminDashboard = () => {
     }
   };
 
-  // Calculate statistics using helper functions
-  const totalAgents = allUsers.filter(user => getUserRole(user) === 'agent').length;
-  const totalCustomers = allUsers.filter(user => getUserRole(user) === 'customer').length;
-  const pendingAgents = allUsers.filter(user => getUserRole(user) === 'agent' && getUserApproval(user) === 'pending').length;
-  const totalPackages = allPackages.length;
-  const totalBookings = allBookings.length;
-  const totalRevenue = allPayments.reduce((total, payment) => total + (payment.Amount || payment.amount || 0), 0);
-  const pendingBookings = allBookings.filter(booking => (booking.Status || booking.status) === 'pending').length;
-  const completedBookings = allBookings.filter(booking => (booking.Status || booking.status) === 'confirmed').length;
-  const pendingAssistance = allAssistanceRequests.filter(req => (req.Status || req.status) === 'pending').length;
+  // Calculate statistics using helper functions with array safety checks
+  const totalAgents = Array.isArray(allUsers) ? allUsers.filter(user => getUserRole(user) === 'agent').length : 0;
+  const totalCustomers = Array.isArray(allUsers) ? allUsers.filter(user => getUserRole(user) === 'customer').length : 0;
+  const pendingAgents = Array.isArray(allUsers) ? allUsers.filter(user => getUserRole(user) === 'agent' && getUserApproval(user) === 'pending').length : 0;
+  const totalPackages = Array.isArray(allPackages) ? allPackages.length : 0;
+  const totalBookings = Array.isArray(allBookings) ? allBookings.length : 0;
+  const totalRevenue = Array.isArray(allPayments) ? allPayments.reduce((total, payment) => total + (payment.Amount || payment.amount || 0), 0) : 0;
+  const pendingBookings = Array.isArray(allBookings) ? allBookings.filter(booking => (booking.Status || booking.status) === 'pending').length : 0;
+  const completedBookings = Array.isArray(allBookings) ? allBookings.filter(booking => (booking.Status || booking.status) === 'confirmed').length : 0;
+  const pendingAssistance = Array.isArray(allAssistanceRequests) ? allAssistanceRequests.filter(req => (req.Status || req.status) === 'pending').length : 0;
 
   const handleRemoveUser = async (userId) => {
     if (window.confirm('Are you sure you want to remove this user?')) {
@@ -86,7 +87,7 @@ const AdminDashboard = () => {
         const result = await userService.deleteUser(userId);
         if (result.success) {
           // Update local state
-          setAllUsers(allUsers.filter(user => getUserId(user) !== userId));
+          setAllUsers(Array.isArray(allUsers) ? allUsers.filter(user => getUserId(user) !== userId) : []);
           toast.success('User removed successfully');
         } else {
           toast.error(result.message || 'Failed to remove user');
@@ -109,9 +110,9 @@ const AdminDashboard = () => {
       
       if (result.success) {
         // Update local state
-        setAllUsers(allUsers.map(user =>
+        setAllUsers(Array.isArray(allUsers) ? allUsers.map(user =>
           getUserId(user) === userId ? { ...user, approval: approval, Approval: approval } : user
-        ));
+        ) : []);
         
         const approvalText = approval === 'approved' ? 'approved' : 'rejected';
         toast.success(`User ${approvalText} successfully`);
@@ -142,11 +143,11 @@ const AdminDashboard = () => {
   };
 
   const getPackageById = (packageId) => {
-    return allPackages.find(pkg => pkg.PackageID === packageId);
+    return Array.isArray(allPackages) ? allPackages.find(pkg => pkg.PackageID === packageId) : null;
   };
 
   const getPaymentById = (paymentId) => {
-    return allPayments.find(payment => payment.PaymentID === paymentId);
+    return Array.isArray(allPayments) ? allPayments.find(payment => payment.PaymentID === paymentId) : null;
   };
 
   const getInsuranceByBookingId = () => {
@@ -255,7 +256,7 @@ const AdminDashboard = () => {
         <section className="dashboard-section">
           <h2>Agent Approval Management</h2>
           <div className="agent-approval-table">
-            {allUsers.filter(user => getUserRole(user) === 'agent' && getUserApproval(user) === 'pending').length === 0 ? (
+            {!Array.isArray(allUsers) || allUsers.filter(user => getUserRole(user) === 'agent' && getUserApproval(user) === 'pending').length === 0 ? (
               <div className="no-pending-agents">
                 <p>No pending agent approvals</p>
               </div>
@@ -319,7 +320,7 @@ const AdminDashboard = () => {
                 </tr>
               </thead>
               <tbody>
-                {allUsers.map((user) => (
+                {Array.isArray(allUsers) ? allUsers.map((user) => (
                   <tr key={getUserId(user)}>
                     <td>{getUserName(user)}</td>
                     <td>{getUserEmail(user)}</td>
@@ -369,7 +370,13 @@ const AdminDashboard = () => {
                       )}
                     </td>
                   </tr>
-                ))}
+                )) : (
+                  <tr>
+                    <td colSpan="5" style={{ textAlign: 'center', padding: '20px' }}>
+                      No users found.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
@@ -393,8 +400,8 @@ const AdminDashboard = () => {
                 </tr>
               </thead>
               <tbody>
-                {allBookings.map((booking) => {
-                  const customer = allUsers.find(user => user.UserID === booking.UserID);
+                {Array.isArray(allBookings) ? allBookings.map((booking) => {
+                  const customer = Array.isArray(allUsers) ? allUsers.find(user => user.UserID === booking.UserID) : null;
                   const packageInfo = getPackageById(booking.PackageID);
                   const paymentInfo = getPaymentById(booking.PaymentID);
                   const insuranceInfo = getInsuranceByBookingId();
@@ -440,7 +447,13 @@ const AdminDashboard = () => {
                       </td>
                     </tr>
                   );
-                })}
+                }) : (
+                  <tr>
+                    <td colSpan="7" style={{ textAlign: 'center', padding: '20px' }}>
+                      No bookings found.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
@@ -468,8 +481,8 @@ const AdminDashboard = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {allAssistanceRequests.map((request) => {
-                    const customer = allUsers.find(user => user.UserID === request.UserID);
+                  {Array.isArray(allAssistanceRequests) ? allAssistanceRequests.map((request) => {
+                    const customer = Array.isArray(allUsers) ? allUsers.find(user => user.UserID === request.UserID) : null;
                     
                     return (
                       <tr key={request.RequestID}>
@@ -523,11 +536,11 @@ const AdminDashboard = () => {
                                 onBlur={(e) => {
                                   if (e.target.value.trim()) {
                                     // Update resolution time
-                                    const updatedRequests = allAssistanceRequests.map(req => 
+                                    const updatedRequests = Array.isArray(allAssistanceRequests) ? allAssistanceRequests.map(req => 
                                       req.RequestID === request.RequestID 
                                         ? { ...req, ResolutionTime: e.target.value.trim() }
                                         : req
-                                    );
+                                    ) : [];
                                     setAllAssistanceRequests(updatedRequests);
                                   }
                                 }}
@@ -537,7 +550,13 @@ const AdminDashboard = () => {
                         </td>
                       </tr>
                     );
-                  })}
+                  }) : (
+                    <tr>
+                      <td colSpan="7" style={{ textAlign: 'center', padding: '20px' }}>
+                        No assistance requests found.
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>

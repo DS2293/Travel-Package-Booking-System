@@ -32,6 +32,10 @@ public class SecurityConfig {
                 .requestMatchers("/api/users/register").permitAll()
                 .requestMatchers("/api/users/login").permitAll()
                 .requestMatchers("/actuator/**").permitAll()
+                .requestMatchers(request -> 
+                    request.getServletPath().matches("/api/users/\\d+") && 
+                    "internal".equalsIgnoreCase(request.getHeader("X-Service-Call"))
+                ).permitAll()
                 .anyRequest().authenticated()
             )
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);        return http.build();

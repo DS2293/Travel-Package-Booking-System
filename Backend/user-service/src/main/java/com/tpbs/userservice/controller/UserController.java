@@ -29,6 +29,22 @@ public class UserController {
         return "admin".equalsIgnoreCase(userRole);
     }
 
+    // Helper method to check if user has admin or agent role, or if it's an internal service call
+    private boolean isAdminOrAgent(HttpServletRequest request) {
+        String userRole = request.getHeader("X-User-Role");
+        String serviceCall = request.getHeader("X-Service-Call");
+        
+        log.debug("Checking access - User role: {}, Service call: {}", userRole, serviceCall);
+        
+        // Allow internal service-to-service calls
+        if ("internal".equalsIgnoreCase(serviceCall)) {
+            return true;
+        }
+        
+        // Allow admin and agent users
+        return "admin".equalsIgnoreCase(userRole) || "agent".equalsIgnoreCase(userRole);
+    }
+
     // Helper method to get user info from headers
     private Map<String, String> getUserInfo(HttpServletRequest request) {
         Map<String, String> userInfo = new HashMap<>();
@@ -57,15 +73,45 @@ public class UserController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<?> getUserById(@PathVariable Long id, HttpServletRequest request) {
-        if (!isAdmin(request)) {
-            return forbidden();
+    public ResponseEntity<Map<String, Object>> getUserById(@PathVariable Long id, HttpServletRequest request) {
+        String userRole = request.getHeader("X-User-Role");
+        String serviceCall = request.getHeader("X-Service-Call");
+        log.info("🔍 getUserById called - ID: {}, Role: {}, ServiceCall: {}", id, userRole, serviceCall);
+        
+        if (!isAdminOrAgent(request)) {
+            log.warn("❌ Access denied for getUserById - ID: {}, Role: {}, ServiceCall: {}", id, userRole, serviceCall);
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("error", "Access denied. Admin or Agent role required.");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
         }
         
-        Optional<UserDto> user = userService.getUserById(id);
-        log.info("Admin {} retrieved user with ID: {}", request.getHeader("X-User-Email"), id);
-        return user.map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+        Optional<UserDto> userOpt = userService.getUserById(id);
+        String requesterEmail = request.getHeader("X-User-Email");
+        String requesterRole = request.getHeader("X-User-Role");
+        
+        if (userOpt.isPresent()) {
+            UserDto user = userOpt.get();
+            Map<String, Object> response = new HashMap<>();
+            Map<String, Object> userData = new HashMap<>();
+            userData.put("userId", user.getUserId());
+            userData.put("name", user.getName());
+            userData.put("email", user.getEmail());
+            userData.put("contactNumber", user.getContactNumber());
+            userData.put("role", user.getRole());
+            
+            response.put("success", true);
+            response.put("data", userData);
+            
+            log.info("✅ Successfully retrieved user - ID: {}, Name: {}, Role: {}, ServiceCall: {}", 
+                id, user.getName(), userRole, serviceCall);
+            return ResponseEntity.ok(response);
+        } else {
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", "User not found");
+            return ResponseEntity.notFound().build();
+        }
     }
 
     @GetMapping("/email/{email}")

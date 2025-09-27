@@ -17,6 +17,11 @@ class BookingService {
     return await apiRequest(`${this.baseURL}/user/${userId}`);
   }
 
+  // JWT-based methods (user ID extracted from token)
+  async getMyBookings() {
+    return await apiRequest(`${this.baseURL}/my-bookings`);
+  }
+
   async getBookingsByPackageId(packageId) {
     return await apiRequest(`${this.baseURL}/package/${packageId}`);
   }
@@ -46,6 +51,7 @@ class BookingService {
       method: 'PUT'
     });
   }
+  
   async confirmBooking(bookingId) {
     return await apiRequest(`${this.baseURL}/${bookingId}/confirm`, {
       method: 'PUT'
@@ -55,6 +61,11 @@ class BookingService {
   // Enhanced methods with cross-service data
   async getUserBookingsWithDetails(userId) {
     return await apiRequest(`${this.baseURL}/user/${userId}/with-details`);
+  }
+
+  // JWT-based enhanced method
+  async getMyBookingsWithDetails() {
+    return await apiRequest(`${this.baseURL}/my-bookings/with-details`);
   }
   
   async getAgentDashboardData(agentId) {

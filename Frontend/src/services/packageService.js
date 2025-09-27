@@ -17,6 +17,11 @@ class PackageService {
     return await apiRequest(`${this.baseURL}/agent/${agentId}`);
   }
 
+  // JWT-based methods (user ID extracted from token)
+  async getMyPackages() {
+    return await apiRequest(`${this.baseURL}/my-packages`);
+  }
+
   async createPackage(packageData) {
     return await apiRequest(this.baseURL, {
       method: 'POST',
@@ -36,6 +41,7 @@ class PackageService {
       method: 'DELETE'
     });
   }
+  
   async searchPackages(searchParams) {
     return await apiRequest(`${this.baseURL}/search`, {
       params: searchParams
@@ -49,6 +55,11 @@ class PackageService {
   
   async getAgentPackagesWithStats(agentId) {
     return await apiRequest(`${this.baseURL}/agent/${agentId}/with-stats`);
+  }
+
+  // JWT-based enhanced method
+  async getMyPackagesWithStats() {
+    return await apiRequest(`${this.baseURL}/my-packages/with-stats`);
   }
 }
 

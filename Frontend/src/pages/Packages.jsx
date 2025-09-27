@@ -104,14 +104,14 @@ const Packages = () => {
     }
 
     try {
-      // Create booking using direct API call
+      // Create booking using JWT-based API call
       const newBookingData = {
-        userId: currentUser.UserID,
+        // userId will be extracted from JWT token by backend
         packageId: selectedPackage.packageId || selectedPackage.PackageID,
         startDate: bookingData.startDate,
         endDate: bookingData.endDate,
-        status: 'pending',
-        paymentId: null
+        status: 'pending'
+        // paymentId will be set automatically when payment is processed
       };
 
       const result = await bookingService.createBooking(newBookingData);
@@ -224,11 +224,11 @@ const Packages = () => {
     }
 
     try {
-      // Create payment using direct API call
+      // Create payment using JWT-based API call
       const totalAmount = (selectedPackage.price || selectedPackage.Price) + (selectedInsurance ? selectedInsurance.price : 0);
       
       const paymentData = {
-        userId: currentUser.UserID,
+        // userId will be extracted from JWT token by backend
         bookingId: selectedPackage.bookingId, // Set during booking creation
         amount: totalAmount,
         paymentMethod: 'CREDIT_CARD',

@@ -84,8 +84,8 @@ public class ApiGatewayApplication {
         
         CorsConfiguration corsConfig = new CorsConfiguration();
         
-        // Allow specific origins - cannot use * with credentials
-        corsConfig.setAllowedOrigins(Arrays.asList(
+        // Set specific origins only - no wildcards
+        corsConfig.setAllowedOriginPatterns(Arrays.asList(
             "http://localhost:5173",
             "http://localhost:5174", 
             "http://localhost:3000",
@@ -96,14 +96,23 @@ public class ApiGatewayApplication {
         // Allow common HTTP methods
         corsConfig.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         
-        // Allow all headers
-        corsConfig.setAllowedHeaders(Arrays.asList("*"));
+        // Allow specific headers instead of wildcard
+        corsConfig.setAllowedHeaders(Arrays.asList(
+            "Authorization", 
+            "Content-Type", 
+            "Accept", 
+            "Origin", 
+            "X-Requested-With"
+        ));
         
         // Allow credentials
         corsConfig.setAllowCredentials(true);
         
         // Expose headers that the frontend can access
         corsConfig.setExposedHeaders(Arrays.asList("Authorization", "Content-Type"));
+        
+        // Set max age to avoid preflight requests
+        corsConfig.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", corsConfig);
